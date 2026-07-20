@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from minio import Minio
 from minio.error import S3Error
+from urllib3.exceptions import HTTPError as Urllib3HTTPError
 
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ def ensure_bucket() -> bool:
         if not storage_client.bucket_exists(MINIO_BUCKET):
             storage_client.make_bucket(MINIO_BUCKET)
         return True
-    except (S3Error, OSError, ValueError) as exc:
+    except (S3Error, OSError, ValueError, Urllib3HTTPError) as exc:
         logger.warning("MinIO is not available yet: %s", exc)
         return False
 
@@ -107,7 +108,7 @@ def put_object(
             content_type=content_type,
             metadata=metadata,
         )
-    except (S3Error, OSError, ValueError) as exc:
+    except (S3Error, OSError, ValueError, Urllib3HTTPError) as exc:
         raise StorageUnavailableError("No se pudo guardar el archivo en MinIO") from exc
     return media_uri(object_name)
 
@@ -119,5 +120,5 @@ def remove_object(value: str) -> None:
     bucket, object_name = location
     try:
         storage_client.remove_object(bucket, object_name)
-    except (S3Error, OSError, ValueError):
+    except (S3Error, OSError, ValueError, Urllib3HTTPError):
         logger.exception("Could not remove orphaned object %s", value)

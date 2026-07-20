@@ -12,7 +12,18 @@ load_dotenv()
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Alfil CC — API de catálogo", version="1.0.0")
+app_environment = os.getenv("APP_ENV", "development").strip().lower()
+api_docs_enabled = app_environment != "production" or os.getenv(
+    "ENABLE_API_DOCS", "false"
+).lower() == "true"
+
+app = FastAPI(
+    title="Alfil CC — API de catálogo",
+    version="1.0.0",
+    docs_url="/docs" if api_docs_enabled else None,
+    redoc_url="/redoc" if api_docs_enabled else None,
+    openapi_url="/openapi.json" if api_docs_enabled else None,
+)
 
 frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 

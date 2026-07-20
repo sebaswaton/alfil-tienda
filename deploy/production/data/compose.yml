@@ -1,0 +1,92 @@
+name: alfil-production-data
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 60s
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Define POSTGRES_USER in .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: ${POSTGRES_DB:?Define POSTGRES_DB in .env.production}
+    ports:
+      - "${DATA_BIND_IP:?Define DATA_BIND_IP in .env.production}:5432:5432"
+    volumes:
+      - ${POSTGRES_DATA_DIR:?Define POSTGRES_DATA_DIR in .env.production}:/var/lib/postgresql/data
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+    logging: *default-logging
+
+  minio:
+    image: ${MINIO_IMAGE:-quay.io/minio/minio:latest}
+    restart: unless-stopped
+    init: true
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Define MINIO_ROOT_USER in .env.production}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Define MINIO_ROOT_PASSWORD in .env.production}
+    ports:
+      - "${DATA_BIND_IP:?Define DATA_BIND_IP in .env.production}:9000:9000"
+      - "${MINIO_CONSOLE_BIND_IP:-127.0.0.1}:9001:9001"
+    volumes:
+      - ${MINIO_DATA_DIR:?Define MINIO_DATA_DIR in .env.production}:/data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+    logging: *default-logging
+
+  minio-init:
+    image: ${MINIO_MC_IMAGE:-quay.io/minio/mc:latest}
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Define MINIO_ROOT_USER in .env.production}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Define MINIO_ROOT_PASSWORD in .env.production}
+      MINIO_APP_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY:?Define MINIO_APP_ACCESS_KEY in .env.production}
+      MINIO_APP_SECRET_KEY: ${MINIO_APP_SECRET_KEY:?Define MINIO_APP_SECRET_KEY in .env.production}
+      MINIO_BUCKET: ${MINIO_BUCKET:-alfil-catalog}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing "local/$$MINIO_BUCKET"
+        mc admin user info local "$$MINIO_APP_ACCESS_KEY" >/dev/null 2>&1 || mc admin user add local "$$MINIO_APP_ACCESS_KEY" "$$MINIO_APP_SECRET_KEY"
+        mc admin policy create local alfil-catalog-rw /policies/alfil-catalog-rw.json
+        mc admin policy attach local alfil-catalog-rw --user "$$MINIO_APP_ACCESS_KEY"
+    volumes:
+      - ./minio/alfil-catalog-rw.json:/policies/alfil-catalog-rw.json:ro
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+    logging: *default-logging
+
+networks:
+  data:
+    driver: bridge

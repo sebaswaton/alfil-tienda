@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.database import Base, engine
 from app.routers import brands, categories, products, inquiries
@@ -51,3 +52,11 @@ def prepare_object_storage():
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/ready")
+def readiness():
+    """Report readiness only when the catalog database accepts queries."""
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return {"status": "ready"}

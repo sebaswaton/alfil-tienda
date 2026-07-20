@@ -1,0 +1,83 @@
+.whatsapp-float {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 58px;
+  padding: 0;
+  background: #25d366;
+  color: #fff;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 12px 30px -8px rgba(37, 211, 102, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), padding 0.28s var(--ease-out);
+}
+
+.whatsapp-float:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 42px -10px rgba(37, 211, 102, 0.6), 0 6px 16px rgba(0, 0, 0, 0.35);
+  padding-right: 22px;
+}
+
+.whatsapp-float__icon {
+  width: 30px;
+  height: 30px;
+  margin: 0 14px;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+/* Expanding label on hover (hidden by default → pill grows) */
+.whatsapp-float__label {
+  max-width: 0;
+  opacity: 0;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: max-width 0.3s var(--ease-out), opacity 0.25s var(--ease-out), margin 0.3s var(--ease-out);
+}
+
+.whatsapp-float:hover .whatsapp-float__label {
+  max-width: 140px;
+  opacity: 1;
+  margin-right: 4px;
+}
+
+/* Pulse ring */
+.whatsapp-float__pulse {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.55);
+  animation: wa-pulse 2.2s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes wa-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5); }
+  70% { box-shadow: 0 0 0 16px rgba(37, 211, 102, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whatsapp-float__pulse { animation: none; }
+}
+
+@media (max-width: 760px) {
+  .whatsapp-float {
+    bottom: max(16px, env(safe-area-inset-bottom));
+    right: max(16px, env(safe-area-inset-right));
+    width: 54px;
+    height: 54px;
+  }
+  .whatsapp-float__label { display: none; }
+  .whatsapp-float:hover { padding-right: 0; }
+}

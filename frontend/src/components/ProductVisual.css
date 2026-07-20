@@ -1,0 +1,91 @@
+.product-visual {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background:
+    radial-gradient(ellipse at 32% 22%, color-mix(in srgb, var(--pv-accent) 22%, transparent), transparent 62%),
+    var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  overflow: hidden;
+}
+
+/* Fine engineering grid overlay */
+.product-visual::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: 0.5;
+  mask-image: radial-gradient(circle at center, #000 40%, transparent 85%);
+}
+
+/* Sweeping scan line */
+.product-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--pv-accent) 12%, transparent), transparent);
+  transform: translateY(-100%);
+  transition: transform 0.9s var(--ease-out);
+}
+
+.product-visual:hover::after { transform: translateY(100%); }
+
+.product-visual__orb {
+  position: relative;
+  width: 42%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--pv-accent) 30%, transparent), transparent 70%),
+    color-mix(in srgb, var(--pv-accent) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--pv-accent) 30%, transparent);
+  box-shadow: inset 0 0 30px color-mix(in srgb, var(--pv-accent) 20%, transparent);
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.product-visual:hover .product-visual__orb { transform: scale(1.06); }
+
+.product-visual__mark {
+  font-size: clamp(18px, 4vw, 30px);
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  color: var(--pv-accent);
+  line-height: 1;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--pv-accent) 60%, transparent));
+}
+
+.product-visual--lg { aspect-ratio: 1 / 1; }
+.product-visual--lg .product-visual__mark { font-size: clamp(30px, 7vw, 54px); }
+
+.product-visual__sku {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  z-index: 1;
+}
+
+.product-visual__brand {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--pv-accent);
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 1;
+}

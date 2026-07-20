@@ -1,0 +1,85 @@
+.marcas {
+  padding: var(--space-7) 0 var(--space-10);
+}
+
+.marcas__head {
+  max-width: 640px;
+  margin-bottom: var(--space-7);
+}
+
+.marcas__intro {
+  color: var(--text-dim);
+  margin-top: var(--space-4);
+  font-size: var(--fs-md);
+}
+
+.marcas__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.marca-card {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+  transition: transform var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), box-shadow var(--dur);
+}
+
+.marca-card .brand-logo { margin-bottom: 2px; }
+
+.marca-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 300px 160px at 100% 0%, color-mix(in srgb, var(--brand-accent) 12%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease-out);
+  pointer-events: none;
+}
+
+.marca-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lift);
+}
+
+.marca-card:hover::after { opacity: 1; }
+
+.marca-card__bar {
+  width: 34px;
+  height: 4px;
+  background: var(--brand-accent);
+  margin-bottom: 6px;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--brand-accent) 60%, transparent);
+}
+
+.marca-card__name {
+  font-family: var(--font-body);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.marca-card__desc {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  margin: 0;
+  flex: 1;
+}
+
+.marca-card__link {
+  font-size: var(--fs-xs);
+  color: var(--text);
+  margin-top: 6px;
+}
+
+@media (max-width: 900px) {
+  .marcas__grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .marcas__grid { grid-template-columns: 1fr; }
+}

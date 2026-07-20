@@ -1,0 +1,68 @@
+.header-search {
+  display: flex;
+  align-items: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  height: 42px;
+  padding-left: 16px;
+  transition: border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+}
+
+.header-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.header-search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+}
+
+.header-search input:focus { outline: none; }
+.header-search input::placeholder { color: var(--text-faint); }
+
+.header-search button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
+}
+
+.header-search button:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.header-search button svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Search inline within a search-only submit, used standalone in the header row */
+.header-search--nav {
+  width: auto;
+  flex: 1;
+  min-width: 220px;
+  max-width: 680px;
+}
+
+/* Search used inside the mobile drawer */
+.header-search--drawer {
+  width: 100%;
+  height: 48px;
+}
+
+.header-search--drawer input { font-size: var(--fs-base); }

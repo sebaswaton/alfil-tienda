@@ -1,0 +1,32 @@
+.brand-marquee {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.brand-marquee__track {
+  display: flex;
+  gap: 18px;
+  width: max-content;
+  animation: marquee 34s linear infinite;
+}
+
+.brand-marquee:hover .brand-marquee__track {
+  animation-play-state: paused;
+}
+
+.brand-marquee__item {
+  flex-shrink: 0;
+  width: 190px;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-50% - 9px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-marquee__track { animation: none; flex-wrap: wrap; }
+}

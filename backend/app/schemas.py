@@ -10,7 +10,7 @@ class BrandOut(BaseModel):
     slug: str
     description: str
     accent_color: str
-    logo_url: str
+    logo_url: str = Field(validation_alias="resolved_logo_url")
 
 
 class CategoryOut(BaseModel):
@@ -20,7 +20,7 @@ class CategoryOut(BaseModel):
     slug: str
     description: str
     icon: str
-    image_url: str
+    image_url: str = Field(validation_alias="resolved_image_url")
 
 
 class ProductImageOut(BaseModel):

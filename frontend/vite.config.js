@@ -11,7 +11,7 @@ export default defineConfig({
       // Same-origin API: browser calls /api/*, Vite forwards to the backend.
       // This means only ONE port needs to be tunneled and there are no CORS issues.
       '/api': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
     },

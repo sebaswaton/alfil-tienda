@@ -1,6 +1,6 @@
 """Carga inicial del catálogo e inventario real de Alfil."""
 
-from app.database import Base, SessionLocal, engine
+from app.database import SessionLocal
 from app import models
 from app.inventory_data import INVENTORY_PRODUCTS
 from app.product_content import PRODUCT_CONTENT
@@ -59,14 +59,11 @@ SUPPLIERS = [
 ]
 
 
-def run(reset=False):
-    if reset:
-        Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+def run():
     db = SessionLocal()
     try:
         if db.query(models.Brand).count() > 0:
-            print("Seed omitido: ya existen datos. Usa --reset para cargar el inventario real.")
+            print("Seed omitido: ya existen datos; no se modificó el catálogo actual.")
             return
 
         brand_map = {}
@@ -114,7 +111,6 @@ def run(reset=False):
                 specs={**data["specs"], **curated.get("specs", {})},
                 highlights=curated.get("highlights", data["highlights"]),
                 available_stock=quantity,
-                stock_type=data["stock_type"],
                 is_used=data["is_used"],
                 stock_note=f"{quantity} unidad{'es' if quantity != 1 else ''} disponible{'s' if quantity != 1 else ''}",
                 status="active",
@@ -165,4 +161,8 @@ def run(reset=False):
 
 if __name__ == "__main__":
     import sys
-    run(reset="--reset" in sys.argv)
+    if "--reset" in sys.argv:
+        raise SystemExit(
+            "--reset fue retirado: restaura una copia de desarrollo y usa Alembic antes del seed"
+        )
+    run()

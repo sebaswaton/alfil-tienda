@@ -19,6 +19,10 @@ solicitar cotizaciones; el proyecto no incluye carrito ni pasarela de pago.
 4. Ejecutar FastAPI desde `backend/`.
 5. Ejecutar `npm install` y `npm run dev` desde `frontend/`.
 
+Las migraciones y la autenticación administrativa se documentan en
+`backend/ADMIN_MVP.md`. El esquema se administra con Alembic; el inicio de la
+API ya no crea ni altera tablas automáticamente.
+
 La consola local de MinIO se encuentra en `http://localhost:9001`. Las
 credenciales, respaldos, inventarios y contenidos de los volúmenes no deben
 versionarse.

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import ProductVisual from "./ProductVisual";
+import { formatAvailability } from "../utils/format";
 import "./ProductCard.css";
 
 export default function ProductCard({ product }) {
@@ -23,7 +24,7 @@ export default function ProductCard({ product }) {
         <h3 className="product-card__name">{product.name}</h3>
         <p className="product-card__desc">{product.short_description}</p>
         <div className="product-card__foot">
-          <span className="mono product-card__stock">{product.stock_note}</span>
+          <span className="mono product-card__stock">{formatAvailability(product.available_stock)}</span>
           <span className="product-card__arrow mono" aria-hidden="true">Ver ficha →</span>
         </div>
       </div>

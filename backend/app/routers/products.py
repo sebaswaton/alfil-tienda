@@ -78,6 +78,8 @@ def list_products(
     ).filter(
         models.Product.status == "active",
         models.Product.available_stock > 0,
+        models.Product.brand.has(models.Brand.is_active.is_(True)),
+        models.Product.category.has(models.Category.is_active.is_(True)),
     )
 
     if brand:
@@ -116,6 +118,8 @@ def get_product(slug: str, db: Session = Depends(get_db)):
             models.Product.slug == slug,
             models.Product.status == "active",
             models.Product.available_stock > 0,
+            models.Product.brand.has(models.Brand.is_active.is_(True)),
+            models.Product.category.has(models.Category.is_active.is_(True)),
         )
         .first()
     )
@@ -255,6 +259,8 @@ def get_related_products(slug: str, db: Session = Depends(get_db)):
             models.Product.id != product.id,
             models.Product.status == "active",
             models.Product.available_stock > 0,
+            models.Product.brand.has(models.Brand.is_active.is_(True)),
+            models.Product.category.has(models.Category.is_active.is_(True)),
         )
         .limit(4)
         .all()

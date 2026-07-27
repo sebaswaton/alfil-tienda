@@ -1,7 +1,8 @@
 # Modelo de base de datos — inventario Alfil
 
 El catálogo conserva todas las categorías. Un producto se publica cuando está
-activo y su `available_stock` es mayor que cero.
+activo, su `available_stock` es mayor que cero y tanto su marca como su
+categoría están activas.
 
 ```mermaid
 erDiagram

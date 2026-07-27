@@ -9,12 +9,21 @@ router = APIRouter(prefix="/api/brands", tags=["brands"])
 
 @router.get("", response_model=list[schemas.BrandOut])
 def list_brands(db: Session = Depends(get_db)):
-    return db.query(models.Brand).order_by(models.Brand.id).all()
+    return (
+        db.query(models.Brand)
+        .filter(models.Brand.is_active.is_(True))
+        .order_by(models.Brand.id)
+        .all()
+    )
 
 
 @router.get("/{slug}", response_model=schemas.BrandOut)
 def get_brand(slug: str, db: Session = Depends(get_db)):
-    brand = db.query(models.Brand).filter(models.Brand.slug == slug).first()
+    brand = (
+        db.query(models.Brand)
+        .filter(models.Brand.slug == slug, models.Brand.is_active.is_(True))
+        .first()
+    )
     if not brand:
         raise HTTPException(status_code=404, detail="Marca no encontrada")
     return brand

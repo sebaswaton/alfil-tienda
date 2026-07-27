@@ -3,12 +3,11 @@
 from sqlalchemy import select
 
 from app import models
-from app.database import Base, SessionLocal, engine
+from app.database import SessionLocal
 from app.product_content import PRODUCT_CONTENT
 
 
 def run() -> tuple[int, list[str]]:
-    Base.metadata.create_all(bind=engine)
     updated = 0
     missing = []
     with SessionLocal() as db:

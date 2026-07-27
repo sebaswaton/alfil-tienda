@@ -23,7 +23,7 @@ from urllib.request import Request, urlopen
 from PIL import Image
 from sqlalchemy import select
 
-from app.database import Base, SessionLocal, engine
+from app.database import SessionLocal
 from app.models import Product, ProductDocument, ProductImage, ProductSource
 from app.official_sources import CORRECTIONS, OFFICIAL_SOURCES, RETIRED_SOURCE_URLS
 from app.storage import media_uri, put_object, storage_client, MINIO_BUCKET
@@ -309,7 +309,6 @@ def sync_og_image(db, product: Product, source: dict, cache_dir: Path) -> str:
 
 
 def run(include_images: bool) -> int:
-    Base.metadata.create_all(bind=engine)
     cache_root = Path("tmp/official-media")
     failures = 0
     with SessionLocal() as db:

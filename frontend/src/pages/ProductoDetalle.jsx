@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import ProductGallery from "../components/ProductGallery";
 import ProductCard from "../components/ProductCard";
 import InquiryForm from "../components/InquiryForm";
+import { formatAvailability } from "../utils/format";
 import "./ProductoDetalle.css";
 
 const TABS = ["Descripción", "Especificaciones", "Preguntas frecuentes"];
@@ -58,6 +59,7 @@ export default function ProductoDetalle() {
 
   const whatsappHref = `https://wa.me/5112774085?text=${encodeURIComponent(`Hola, quisiera cotizar: ${product.name} (SKU ${product.sku})`)}`;
   const manufacturerSources = (product.sources || []).filter((source) => source.source_type !== "image");
+  const availability = formatAvailability(product.available_stock);
 
   return (
     <div className="container product-detail">
@@ -94,7 +96,7 @@ export default function ProductoDetalle() {
             </div>
             <div>
               <span>Disponibilidad</span>
-              <strong className="product-detail__stock">{product.stock_note}</strong>
+              <strong className="product-detail__stock">{availability}</strong>
             </div>
           </div>
 
@@ -114,7 +116,7 @@ export default function ProductoDetalle() {
           <p>Confirma precio, stock final, entrega e instalación con un asesor de Alfil.</p>
           <div className="product-detail__commercial-stock">
             <span aria-hidden="true" />
-            {product.stock_note}
+            {availability}
           </div>
           {product.documents?.length > 0 && (
             <div className="product-detail__documents">

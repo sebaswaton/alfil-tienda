@@ -276,10 +276,10 @@ export default function Header() {
               </div>
             ) : (
               <div className="site-header__mega-empty">
-                <span className="eyebrow">Sin stock actual</span>
-                <h3>Esta categoría aún no tiene productos disponibles.</h3>
-                <p>La mantenemos visible para incorporar nuevos equipos cuando ingresen al inventario.</p>
-                <NavLink className="btn" to="/contacto">Consultar con un asesor</NavLink>
+                <span className="eyebrow">Catálogo</span>
+                <h3>Explora {selectedCategory?.name || "esta categoría"}.</h3>
+                <p>{selectedCategory?.description || "Consulta los productos disponibles en esta categoría."}</p>
+                <NavLink className="btn" to={`/catalogo?category=${selectedCategorySlug}`}>Ver productos</NavLink>
               </div>
             )}
           </section>

@@ -20,6 +20,10 @@
   align-items: start;
 }
 
+.contacto__grid > .inquiry-form {
+  margin-top: calc(-1 * var(--space-5));
+}
+
 .contacto__info {
   display: flex;
   flex-direction: column;
@@ -44,4 +48,5 @@ a.contacto__value:hover { color: var(--accent); }
 
 @media (max-width: 900px) {
   .contacto__grid { grid-template-columns: 1fr; }
+  .contacto__grid > .inquiry-form { margin-top: 0; }
 }

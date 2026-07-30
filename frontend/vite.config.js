@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: process.env.VITE_BASE_PATH || '/tienda/',
   plugins: [react()],
   server: {
     host: true,            // listen on 0.0.0.0 so tunnels can reach it

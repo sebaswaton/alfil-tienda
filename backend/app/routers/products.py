@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.auth import require_admin
 from app.database import get_db
 from app import models, schemas
 from app.storage import StorageUnavailableError, put_object, remove_object
@@ -27,15 +28,21 @@ PDF_MAX_BYTES = 25 * 1024 * 1024
 
 def require_media_admin(
     x_admin_key: Annotated[str | None, Header(alias="X-Admin-Key")] = None,
+    authorization: Annotated[str | None, Header()] = None,
+    db: Session = Depends(get_db),
 ):
     expected = os.getenv("MEDIA_ADMIN_API_KEY", "")
+    if expected and x_admin_key and secrets.compare_digest(x_admin_key, expected):
+        return
+    if authorization:
+        require_admin(authorization, db)
+        return
     if not expected:
         raise HTTPException(
             status_code=503,
-            detail="La carga de archivos no está habilitada: configura MEDIA_ADMIN_API_KEY",
+            detail="La carga de archivos no está habilitada",
         )
-    if not x_admin_key or not secrets.compare_digest(x_admin_key, expected):
-        raise HTTPException(status_code=401, detail="Clave de administración inválida")
+    raise HTTPException(status_code=401, detail="Inicia sesión para cargar archivos")
 
 
 def safe_filename(filename: str, fallback: str) -> str:
@@ -78,6 +85,8 @@ def list_products(
     ).filter(
         models.Product.status == "active",
         models.Product.available_stock > 0,
+        models.Product.brand.has(models.Brand.is_active.is_(True)),
+        models.Product.category.has(models.Category.is_active.is_(True)),
     )
 
     if brand:
@@ -116,6 +125,8 @@ def get_product(slug: str, db: Session = Depends(get_db)):
             models.Product.slug == slug,
             models.Product.status == "active",
             models.Product.available_stock > 0,
+            models.Product.brand.has(models.Brand.is_active.is_(True)),
+            models.Product.category.has(models.Category.is_active.is_(True)),
         )
         .first()
     )
@@ -255,6 +266,8 @@ def get_related_products(slug: str, db: Session = Depends(get_db)):
             models.Product.id != product.id,
             models.Product.status == "active",
             models.Product.available_stock > 0,
+            models.Product.brand.has(models.Brand.is_active.is_(True)),
+            models.Product.category.has(models.Category.is_active.is_(True)),
         )
         .limit(4)
         .all()

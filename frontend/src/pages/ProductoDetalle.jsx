@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import ProductGallery from "../components/ProductGallery";
 import ProductCard from "../components/ProductCard";
 import InquiryForm from "../components/InquiryForm";
+import { formatPrice } from "../utils/format";
 import "./ProductoDetalle.css";
 
 const TABS = ["Descripción", "Especificaciones", "Preguntas frecuentes"];
@@ -58,6 +59,7 @@ export default function ProductoDetalle() {
 
   const whatsappHref = `https://wa.me/5112774085?text=${encodeURIComponent(`Hola, quisiera cotizar: ${product.name} (SKU ${product.sku})`)}`;
   const manufacturerSources = (product.sources || []).filter((source) => source.source_type !== "image");
+  const price = formatPrice(product.price, product.currency);
 
   return (
     <div className="container product-detail">
@@ -110,8 +112,17 @@ export default function ProductoDetalle() {
 
         <aside className="product-detail__commercial" aria-label="Opciones de cotización">
           <span className="product-detail__commercial-label">Disponible para cotizar</span>
-          <h2>Cotización personalizada</h2>
-          <p>Confirma precio, stock final, entrega e instalación con un asesor de Alfil.</p>
+          {price ? (
+            <>
+              <h2 className="product-detail__price">{price}</h2>
+              <p>Precio referencial. Confirma stock final, entrega e instalación con un asesor de Alfil.</p>
+            </>
+          ) : (
+            <>
+              <h2>Cotización personalizada</h2>
+              <p>Confirma precio, stock final, entrega e instalación con un asesor de Alfil.</p>
+            </>
+          )}
           <div className="product-detail__commercial-stock">
             <span aria-hidden="true" />
             {product.stock_note}

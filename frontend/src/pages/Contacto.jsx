@@ -9,7 +9,7 @@ export default function Contacto() {
         <h1 className="section-title">Contacto</h1>
         <p className="contacto__intro">
           Escríbenos para cotizaciones, soporte técnico o alianzas comerciales.
-          Un asesor de Alfil te responderá directamente.
+          Un asesor de HW Store te responderá directamente.
         </p>
       </div>
 
@@ -21,16 +21,7 @@ export default function Contacto() {
           </div>
           <div className="contacto__block">
             <span className="eyebrow">Ventas</span>
-            <a href="mailto:ventas@alfilcc.com" className="contacto__value mono">ventas@alfilcc.com</a>
-          </div>
-          <div className="contacto__block">
-            <span className="eyebrow">Oficina</span>
-            <span className="contacto__value">Jr. Río Moquegua 271, San Luis, Lima</span>
-          </div>
-          <div className="contacto__block">
-            <span className="eyebrow">Horario de atención</span>
-            <span className="contacto__value mono">Lun – Vie · 09:00 – 18:00</span>
-            <span className="contacto__value mono">Sáb · 09:00 – 13:00</span>
+            <a href="mailto:ventas@hwstore.com.pe" className="contacto__value mono">ventas@hwstore.com.pe</a>
           </div>
           <a
             className="btn btn-primary btn-block"

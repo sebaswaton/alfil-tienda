@@ -45,6 +45,19 @@ técnicas oficiales:
 .venv/bin/python -m app.import_official_media --images
 ```
 
+Las imágenes o fichas secundarias que fueron comprobadas manualmente se
+mantienen en un registro independiente para no confundirlas con material del
+fabricante. Se importan con:
+
+```bash
+.venv/bin/python -m app.import_reviewed_media
+```
+
+El importador registra la procedencia y el alcance de coincidencia, valida el
+contenido y marca `is_official=false` cuando el editor del archivo es un
+distribuidor o repositorio externo. Nunca se agregan resultados de búsqueda ni
+el SKU ambiguo `HP-W1950X`.
+
 El proceso es idempotente, rechaza archivos que no coincidan con su formato y
 guarda la URL del fabricante en `product_sources`. No se debe agregar una URL
 a la lista hasta haber confirmado que corresponde al modelo o a la familia

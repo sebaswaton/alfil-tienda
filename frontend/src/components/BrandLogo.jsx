@@ -1,4 +1,5 @@
 import "./BrandLogo.css";
+import { publicAsset } from "../utils/publicAsset";
 
 /**
  * Renders a brand's real logo on a light rounded plate for guaranteed
@@ -9,7 +10,7 @@ export default function BrandLogo({ brand, className = "" }) {
     <div className={"brand-logo " + className} style={{ "--brand-accent": brand.accent_color }}>
       <div className="brand-logo__plate">
         {brand.logo_url ? (
-          <img src={brand.logo_url} alt={brand.name} loading="lazy" />
+          <img src={publicAsset(brand.logo_url)} alt={brand.name} loading="lazy" />
         ) : (
           <span className="brand-logo__wordmark">{brand.name}</span>
         )}

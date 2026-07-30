@@ -24,6 +24,8 @@ dist-ssr/
 tmp/
 .tmp/
 backend/tmp/
+deploy/cpanel/build/
+output/
 *.log
 *.pid
 *.dump

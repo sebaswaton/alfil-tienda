@@ -1,0 +1,936 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{fontspec}
+\setmainfont{Helvetica Neue}
+\setsansfont{Helvetica Neue}
+\setmonofont{Menlo}
+\usepackage[a4paper,margin=2.1cm,headheight=22pt]{geometry}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{pdflscape}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage[most]{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit}
+
+\definecolor{alfil}{HTML}{008878}
+\definecolor{alfildark}{HTML}{12312D}
+\definecolor{alfilsoft}{HTML}{EAF5F3}
+\definecolor{ink}{HTML}{17211F}
+\definecolor{muted}{HTML}{5F716D}
+\definecolor{line}{HTML}{DCE6E3}
+\definecolor{warning}{HTML}{B66A00}
+\definecolor{danger}{HTML}{B42318}
+\definecolor{done}{HTML}{087A5B}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=alfil,
+  urlcolor=alfil,
+  citecolor=alfil,
+  pdftitle={Alfil Tienda - Informe tecnico, arquitectura y despliegue},
+  pdfauthor={Alfil Consultoria y Comunicaciones S.A.C.},
+  pdfsubject={Estado del proyecto y plan de despliegue en produccion}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small ALFIL TIENDA}
+\rhead{\small Informe técnico y plan de despliegue}
+\cfoot{\small \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{alfil}\leaders\hrule height \headrulewidth\hfill}}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlength{\emergencystretch}{3em}
+\setlist[itemize]{leftmargin=1.5em,itemsep=0.25em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.7em,itemsep=0.35em,topsep=0.25em}
+\renewcommand{\arraystretch}{1.18}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\ok}{\textcolor{done}{\textbf{HECHO}}}
+\newcommand{\pending}{\textcolor{warning}{\textbf{PENDIENTE}}}
+\newcommand{\critical}{\textcolor{danger}{\textbf{CRÍTICO}}}
+\newcommand{\code}[1]{\nolinkurl{#1}}
+
+\newtcolorbox{summarybox}{
+  enhanced,breakable,colback=alfilsoft,colframe=alfil,boxrule=0.8pt,
+  arc=2mm,left=4mm,right=4mm,top=3mm,bottom=3mm
+}
+\newtcolorbox{warningbox}{
+  enhanced,breakable,colback=orange!5,colframe=warning,boxrule=0.8pt,
+  arc=2mm,left=4mm,right=4mm,top=3mm,bottom=3mm
+}
+\newtcolorbox{dangerbox}{
+  enhanced,breakable,colback=red!4,colframe=danger,boxrule=0.8pt,
+  arc=2mm,left=4mm,right=4mm,top=3mm,bottom=3mm
+}
+
+\lstdefinestyle{alfilcode}{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{ink!4},
+  frame=single,
+  rulecolor=\color{line},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=0.4em,
+  xrightmargin=0.4em,
+  aboveskip=0.5em,
+  belowskip=0.5em
+}
+\lstset{style=alfilcode}
+
+\begin{document}
+
+\begin{titlepage}
+  \thispagestyle{empty}
+  \begin{tikzpicture}[remember picture,overlay]
+    \fill[alfil] (current page.north west) rectangle ([yshift=-8mm]current page.north east);
+    \fill[alfilsoft] ([yshift=8mm]current page.south west) rectangle (current page.south east);
+  \end{tikzpicture}
+  \vspace*{1.2cm}
+  \includegraphics[width=0.34\textwidth]{frontend/public/alfil-logo.png}
+  \vspace{2.0cm}
+
+  {\Huge\bfseries\color{ink} ALFIL TIENDA\par}
+  \vspace{0.45cm}
+  {\LARGE\color{alfil} Informe técnico integral\par}
+  \vspace{0.2cm}
+  {\Large Arquitectura, estado actual y plan de despliegue\par}
+
+  \vspace{1.5cm}
+  \begin{summarybox}
+    \textbf{Propósito.} Registrar en un único documento el alcance funcional, los datos de inventario, las decisiones de arquitectura, la preparación del repositorio, la configuración real de las máquinas virtuales, las validaciones ejecutadas y el trabajo pendiente hasta publicar el catálogo en producción.
+  \end{summarybox}
+
+  \vfill
+  \begin{tabular}{@{}ll@{}}
+    \textbf{Organización:} & Alfil Consultoría y Comunicaciones S.A.C.\\
+    \textbf{Repositorio:} & \href{https://github.com/sebaswaton/alfil-tienda}{github.com/sebaswaton/alfil-tienda}\\
+    \textbf{Rama documentada:} & \code{feature/deployment-production}\\
+    \textbf{Commit base:} & \code{5ff035e}\\
+    \textbf{Fecha de corte:} & 20 de julio de 2026, zona horaria America/Lima\\
+    \textbf{Estado:} & Preparación de infraestructura y despliegue inicial\\
+  \end{tabular}
+  \vspace{1.2cm}
+\end{titlepage}
+
+\tableofcontents
+\clearpage
+
+\section{Resumen ejecutivo}
+
+Alfil Tienda es una vitrina comercial B2B para presentar únicamente los productos con stock confirmado y conducir al cliente hacia una cotización asistida. No es un comercio electrónico transaccional: no tiene carrito, checkout ni pasarela de pago. La propuesta conserva la identidad visual de Alfil, con fondo blanco y grises claros y el verde corporativo como color de interacción.
+
+La aplicación ya dispone de frontend React, API FastAPI, PostgreSQL y almacenamiento de objetos compatible con S3 mediante MinIO. El catálogo actual contiene \textbf{42 productos vendibles}, \textbf{2,898 unidades}, \textbf{8 categorías registradas} y \textbf{13 marcas registradas}. Se han cargado 16 productos con imagen, 22 con al menos un PDF, 88 fuentes oficiales distribuidas en 41 productos y 126 preguntas frecuentes, exactamente 3 por producto.
+
+Para producción se decidió una arquitectura de \textbf{dos máquinas virtuales con Docker Compose}, sin Kubernetes y sin dirección IP pública. La VM web ejecutará Nginx, FastAPI y Cloudflare Tunnel; la VM de datos ejecutará PostgreSQL y MinIO. Un único dominio registrado será suficiente, con dos nombres DNS: uno para el sitio y otro para los objetos firmados de MinIO.
+
+\begin{summarybox}
+\textbf{Estado a la fecha de corte.} Las dos VM están instaladas, tienen hostname e IP estática y aceptan SSH. La VM de datos ya tiene su segundo disco XFS montado en \code{/srv/alfil}. Todavía falta confirmar Docker en ambas VM, endurecer SSH/red, crear los directorios y secretos de producción, publicar las imágenes en GHCR, desplegar primero la capa de datos, migrar PostgreSQL y MinIO, desplegar la aplicación, configurar Cloudflare y ejecutar la aceptación final.
+\end{summarybox}
+
+\begin{dangerbox}
+\textbf{Acción de seguridad inmediata.} Durante el trabajo se compartió en el chat un token personal de GitHub. El valor no se reproduce en este documento. Debe revocarse y reemplazarse desde GitHub, revisar su actividad y utilizar en producción un token nuevo de solo lectura si las imágenes GHCR continúan privadas. Ningún secreto debe quedar en Git, documentos o capturas.
+\end{dangerbox}
+
+\section{Objetivo, alcance y reglas de negocio}
+
+\subsection{Objetivo}
+
+Entregar una vitrina técnica y comercial que permita encontrar equipos y suministros disponibles, consultar sus características, imágenes, fichas PDF y fuentes oficiales, y solicitar una cotización a un asesor de Alfil.
+
+\subsection{Alcance funcional vigente}
+
+\begin{itemize}
+  \item Página de inicio, catálogo, marcas, contacto, detalle de producto y página 404.
+  \item Búsqueda global y filtros por categoría, marca y texto.
+  \item Menú de categorías a pantalla completa inspirado en el patrón de Coolbox, adaptado a la oferta B2B de Alfil.
+  \item Carrusel principal de tres imágenes con controles, indicadores y avance automático.
+  \item Fichas de producto con galería, stock, SKU, número de parte, descripción, especificaciones, preguntas frecuentes, fuentes oficiales y documentos PDF.
+  \item Solicitud de cotización mediante formulario y contacto directo por WhatsApp.
+  \item Gestión de activos en MinIO y metadatos/relaciones en PostgreSQL.
+  \item Presentación responsiva en escritorio, tableta y móvil.
+\end{itemize}
+
+\subsection{Reglas no negociables}
+
+\begin{itemize}
+  \item Solo se muestran productos con \code{status=active} y stock disponible mayor que cero.
+  \item Las categorías se conservan aunque no tengan productos; deben mostrar un estado vacío correcto.
+  \item No se implementan carrito, compra en línea ni pasarela de pago.
+  \item Las cotizaciones y disponibilidad final quedan sujetas a validación comercial.
+  \item Los archivos no se cargan directamente desde la consola de MinIO: deben registrarse mediante la API para mantener la relación en base de datos.
+  \item PostgreSQL no almacena binarios; almacena datos de negocio y referencias \code{minio://...}.
+  \item Las imágenes y PDF permanecen privados en MinIO y se sirven con URL firmada temporal.
+\end{itemize}
+
+\section{Evolución y trabajo realizado}
+
+\begin{longtable}{L{2.8cm}L{4.2cm}L{8.0cm}}
+\toprule
+\textbf{Área} & \textbf{Estado} & \textbf{Resultado}\\
+\midrule
+\endhead
+Diseño visual & \ok & Se invirtió el tema oscuro a una superficie blanca y gris claro, manteniendo los verdes de Alfil. Se eliminaron acentos morados no deseados, incluido el hover del logotipo.\\
+Responsividad & \ok & Se ajustaron contenedores, cuadrículas, cabecera, menú, carrusel, tarjetas y detalle para conservar consistencia al ampliar o reducir la resolución.\\
+Carrusel & \ok & La imagen hero estática fue reemplazada por tres imágenes \code{carrusel-1}, \code{carrusel-2} y \code{carrusel-3}; cubren el ancho horizontal, tienen flechas, puntos, teclado, pausa por foco/hover y avance automático cada 6.5 s.\\
+Cabecera & \ok & Se organizó con franja informativa, logo, botón Categorías, buscador, acceso a asesor y navegación Inicio/Catálogo/Marcas/Contacto.\\
+Categorías & \ok & Menú modal a pantalla completa con entrada de izquierda a derecha, panel oscuro con 8 categorías y submenús generales clicables, basados en los productos disponibles.\\
+Beneficios & \ok & Se sustituyeron emojis por iconos SVG y se ajustó el contenido: Asesoría especializada, Cotización sin compromiso, Envíos a todo el país y Garantía asegurada. La franja quedó separada de Marcas aliadas.\\
+Marcas & \ok & Se incorporaron logos oficiales/locales para HP, Dell, Lenovo, Epson, Intel, ASUS, Cisco, APC, Huawei, Salicru, Canon, Avago y Brocade.\\
+Catálogo & \ok & Tarjetas, filtros, paginación, búsqueda, estados sin resultados y enlaces desde submenús.\\
+Detalle & \ok & Galería, stock, SKU/parte, pestañas de descripción/especificaciones/FAQ, fuentes, PDF, cotización, relacionados y WhatsApp. Se retiraron elementos solicitados de especialista/envíos/garantía del panel individual.\\
+Inventario & \ok & Se consolidaron los Excel de San Luis y San Borja, se normalizaron 42 productos con stock y se preservaron categorías vacías.\\
+Contenido técnico & \ok & Se añadieron descripciones, especificaciones, preguntas frecuentes, fuentes y documentación oficial cuando fue posible.\\
+MinIO & \ok & API de carga y lectura con bucket privado, validación de tipo/tamaño, rutas por SKU y URL firmadas. Preparación de producción incluida en Compose.\\
+Backend & \ok & API FastAPI con salud, readiness, filtros, productos, relacionados, marcas, categorías, consultas y medios.\\
+Docker & \ok & Dockerfiles de producción y Compose separado para VM web y VM de datos. Validación local de contenedores completada.\\
+Git/GitFlow & \ok & Repositorio GitHub, ramas \code{feature/*}, \code{develop}, \code{main}; workflow de imágenes para GHCR y tag inicial \code{v1.0.0}.\\
+VM de producción & Parcial & Dos VM instaladas, direccionadas y verificadas; falta instalar/confirmar Docker y desplegar los servicios.\\
+Publicación externa & \pending & Dominio definitivo, túnel Cloudflare, DNS, certificados y prueba desde Internet.\\
+\bottomrule
+\end{longtable}
+
+\section{Experiencia web implementada}
+
+\subsection{Mapa de rutas}
+
+\begin{tabularx}{\textwidth}{L{3.6cm}Y}
+\toprule
+\textbf{Ruta} & \textbf{Propósito}\\
+\midrule
+\code{/} & Inicio: carrusel, acceso a categorías, destacados, beneficios, marcas y contacto.\\
+\code{/catalogo} & Listado completo con búsqueda, filtros y paginación.\\
+\code{/producto/:slug} & Ficha comercial y técnica del producto.\\
+\code{/marcas} & Marcas aliadas y navegación por marca.\\
+\code{/contacto} & Canales de contacto y solicitud comercial.\\
+Cualquier otra & Página 404 con regreso seguro al inicio.\\
+\bottomrule
+\end{tabularx}
+
+\subsection{Patrones de interfaz}
+
+La referencia visual de organización fue \href{https://www.coolbox.pe/}{Coolbox}, especialmente para jerarquía de navegación, uso del espacio, carrusel y menú amplio de categorías. Se adaptó el patrón sin copiar el negocio transaccional: Alfil conserva su marca, colores, categorías, productos y flujo de cotización.
+
+El menú de categorías ocupa el viewport, oscurece el contenido subyacente y despliega una columna izquierda con las categorías y una superficie derecha con agrupaciones generales. Cada enlace traduce la intención a filtros/búsquedas reales del catálogo. En móvil, la navegación se reorganiza verticalmente y mantiene cierre, foco y desplazamiento.
+
+El carrusel usa imágenes de extremo a extremo horizontal, controles anterior/siguiente, puntos que representan las tres diapositivas, teclado y avance automático. La interacción respeta el foco, el hover y preferencias de movimiento reducido.
+
+\subsection{Identidad y contacto}
+
+\begin{itemize}
+  \item Teléfono y WhatsApp: \textbf{+51 (1) 277-4085}.
+  \item Correo: \href{mailto:ventas@alfilcc.com}{ventas@alfilcc.com}.
+  \item Dirección: Jr. Río Moquegua 271, San Luis, Lima.
+  \item Horario: lunes a viernes 09:00-18:00; sábado 09:00-13:00.
+\end{itemize}
+
+\section{Arquitectura de la aplicación}
+
+\subsection{Tecnologías}
+
+\begin{tabularx}{\textwidth}{L{3.3cm}L{4.2cm}Y}
+\toprule
+\textbf{Capa} & \textbf{Tecnología} & \textbf{Responsabilidad}\\
+\midrule
+Frontend & React 19.2.7, React Router 7.18.1, Vite 8.1.1 & Interfaz responsiva, navegación, filtros, formularios y consumo de API.\\
+Entrega web & Nginx 1.29 Alpine & Archivos estáticos, fallback SPA, proxy de \code{/api}, healthcheck.\\
+API & FastAPI 0.115, Uvicorn, Pydantic 2.9.2 & Reglas de catálogo, validación, consultas, URL firmadas y carga de medios.\\
+Persistencia & SQLAlchemy 2.0.35, Psycopg 3.2.3, PostgreSQL 16 & Datos de productos, inventario, documentos, fuentes, FAQ y consultas comerciales.\\
+Objetos & MinIO/S3, cliente MinIO, Pillow & Imágenes y documentos privados, validación y firma temporal.\\
+Exposición & Cloudflare Tunnel & Acceso HTTPS saliente desde la red privada, sin IP pública ni NAT entrante.\\
+Contenedores & Docker Engine y Compose & Empaquetado, aislamiento, actualización y rollback por versión.\\
+CI/CD & GitHub Actions y GHCR & Construcción y publicación de imágenes del frontend y backend.\\
+\bottomrule
+\end{tabularx}
+
+\subsection{Flujo de una solicitud}
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  node distance=8mm and 10mm,
+  box/.style={draw=line,rounded corners=2mm,fill=white,minimum height=11mm,align=center,text width=28mm},
+  strong/.style={box,draw=alfil,fill=alfilsoft},
+  arr/.style={-{Latex[length=2mm]},thick,color=alfil}
+]
+\node[strong] (user) {Cliente\\HTTPS};
+\node[box,right=of user] (cf) {Cloudflare\\Tunnel};
+\node[box,right=of cf] (ng) {Nginx\\React};
+\node[box,right=of ng] (api) {FastAPI\\API};
+\node[box,below right=10mm and -4mm of api] (db) {PostgreSQL\\metadatos};
+\node[box,above right=10mm and -4mm of api] (minio) {MinIO\\objetos};
+\draw[arr] (user) -- (cf);
+\draw[arr] (cf) -- (ng);
+\draw[arr] (ng) -- node[above,sloped,font=\scriptsize]{/api} (api);
+\draw[arr] (api) -- (db);
+\draw[arr] (api) -- (minio);
+\draw[arr,dashed] (minio.west) to[bend right=25] node[above,font=\scriptsize]{URL firmada} (cf.south);
+\end{tikzpicture}
+}
+\end{center}
+
+Para el sitio y la API se utiliza el mismo origen: Nginx sirve React y redirige \code{/api} al backend. Para una imagen o PDF, la API consulta la referencia \code{minio://bucket/objeto}, genera una URL de corta duración y el navegador accede a \code{media.<dominio>} a través del mismo túnel.
+
+\subsection{API disponible}
+
+\begin{longtable}{L{2.2cm}L{5.6cm}L{7.0cm}}
+\toprule
+\textbf{Método} & \textbf{Ruta} & \textbf{Uso}\\
+\midrule
+\endhead
+GET & \code{/api/health} & Estado básico del proceso.\\
+GET & \code{/api/ready} & Readiness incluyendo dependencias necesarias.\\
+GET & \code{/api/brands} & Marcas registradas.\\
+GET & \code{/api/categories} & Categorías, incluidas las vacías.\\
+GET & \code{/api/products} & Productos con filtros, búsqueda y paginación; tamaño máximo 48.\\
+GET & \code{/api/products/\{slug\}} & Detalle completo de un producto.\\
+GET & \code{/api/products/\{slug\}/related} & Productos relacionados.\\
+POST & \code{/api/products/\{sku\}/media} & Carga administrativa de imagen/PDF con encabezado \code{X-Admin-Key}.\\
+POST & \code{/api/inquiries} & Registro de solicitud de cotización.\\
+\bottomrule
+\end{longtable}
+
+En producción, Swagger/ReDoc se deshabilitan con \code{APP_ENV=production} y \code{ENABLE_API_DOCS=false}. Las imágenes permitidas son JPG, PNG y WebP de hasta 10 MB; los PDF hasta 25 MB. Se validan MIME, firma real, nombre sanitizado y ruta aleatoria. Si falla la transacción de base de datos, el objeto huérfano se elimina.
+
+\section{Modelo de datos e inventario}
+
+\subsection{Modelo relacional}
+
+\begin{longtable}{L{4.0cm}L{11.0cm}}
+\toprule
+\textbf{Entidad} & \textbf{Función}\\
+\midrule
+\endhead
+\code{brands} & Catálogo normalizado de marcas.\\
+\code{categories} & Categorías visibles; pueden existir sin productos.\\
+\code{products} & SKU, slug, marca, categoría, número de parte, nombre, descripciones, especificaciones, destacados, condición, estado y stock disponible.\\
+\code{product_images} & Referencias a imágenes, orden y alternativa accesible.\\
+\code{product_documents} & PDF/fichas, tipo, etiqueta y referencia MinIO.\\
+\code{product_sources} & Página oficial, soporte, documentación y otras fuentes verificables.\\
+\code{product_faqs} & Pregunta, respuesta y orden.\\
+\code{inquiries} & Solicitudes de cotización recibidas por la web.\\
+\code{warehouses} & Sedes/almacenes; contempla San Luis, San Borja y Callao.\\
+\code{suppliers} & Proveedores como Ingram, Nexsys, Deltron, HDST u otros.\\
+\code{inventory_units} & Trazabilidad individual para equipos serializados.\\
+\code{inventory_balances} & Existencia agregada para consumibles o unidades no serializadas.\\
+\code{stock_movements} & Historial auditable de entrada, salida, traslado, venta, alquiler, retorno, ajuste e importación inicial.\\
+\bottomrule
+\end{longtable}
+
+La visibilidad comercial depende del producto activo y de \code{available_stock > 0}. Para los equipos serializados se recomiendan estados \code{available}, \code{reserved}, \code{assigned}, \code{rented}, \code{sold}, \code{review} y \code{damaged}; para condición, \code{new}, \code{used} y \code{refurbished}. El stock disponible puede mantenerse desnormalizado, pero siempre debe actualizarse en la misma transacción que registra el movimiento.
+
+\subsection{Procedencia y resultado de la carga}
+
+Fuentes iniciales utilizadas:
+\begin{itemize}
+  \item \code{/Users/sebastianninasivincha/Downloads/Stock de Equipos San Luis V.1.xlsx}
+  \item \code{/Users/sebastianninasivincha/Downloads/INVENTARIO - SB.xlsx}
+\end{itemize}
+
+El resultado visible y verificado mediante la API es:
+
+\begin{tabularx}{\textwidth}{L{5.6cm}r r Y}
+\toprule
+\textbf{Categoría} & \textbf{Productos} & \textbf{Unidades} & \textbf{Observación}\\
+\midrule
+Componentes & 7 & 236 & Monitores, tablets y accesorios.\\
+Computadoras & 12 & 70 & Mini PC, SFF, AIO y workstations.\\
+Laptops & 4 & 135 & Portátiles empresariales.\\
+Redes y Conectividad & 12 & 74 & Switches y transceptores.\\
+Toners y Suministros & 7 & 2,383 & Mayor concentración de unidades.\\
+Impresoras & 0 & 0 & Categoría conservada, sin stock actual.\\
+Aires Acondicionados & 0 & 0 & Categoría conservada, sin stock actual.\\
+Grupos Electrógenos & 0 & 0 & Categoría conservada, sin stock actual.\\
+\midrule
+\textbf{Total} & \textbf{42} & \textbf{2,898} & Solo productos vendibles.\\
+\bottomrule
+\end{tabularx}
+
+\begin{tabularx}{\textwidth}{L{3.4cm}r r L{3.4cm}r r}
+\toprule
+\textbf{Marca} & \textbf{Prod.} & \textbf{Unid.} & \textbf{Marca} & \textbf{Prod.} & \textbf{Unid.}\\
+\midrule
+Avago & 1 & 4 & Brocade & 1 & 1\\
+Canon & 1 & 195 & Cisco & 6 & 57\\
+HP & 27 & 2,587 & Huawei & 4 & 47\\
+Lenovo & 1 & 4 & Salicru & 1 & 3\\
+\bottomrule
+\end{tabularx}
+
+Además están registradas Dell, Epson, Intel, ASUS y APC como marcas aliadas sin stock actual. La cobertura de contenido es: 16/42 productos con imagen, 22/42 con PDF, 41/42 con al menos una fuente y 42/42 con tres FAQ. \code{HP-W1950X} es el único producto sin fuente registrada. También falta completar número de parte en \code{HP-240-G10}, \code{HP-240-G9}, \code{HP-250-G8}, \code{AVAGO-AFBR-57F5MZ}, \code{CISCO-GLC-LH-SM} y \code{CISCO-GLC-T}.
+
+\section{MinIO e integración de archivos}
+
+\subsection{Decisión de almacenamiento}
+
+El bucket de producción se denomina \code{alfil-catalog}. Debe ser privado. El contenido se organiza por SKU, por ejemplo:
+
+\begin{lstlisting}
+products/<sku>/images/<id-aleatorio>.webp
+products/<sku>/documents/<id-aleatorio>.pdf
+\end{lstlisting}
+
+La base almacena una referencia \code{minio://alfil-catalog/...}; al responder al cliente, FastAPI genera una URL firmada de corta duración. El valor previsto por defecto es 4 horas. En producción el nombre público debe ser \code{media.<dominio>} y el endpoint interno debe continuar siendo \code{192.168.18.21:9000}.
+
+\subsection{Estado}
+
+\begin{itemize}
+  \item \ok\ Integración backend, validaciones y relaciones de base de datos implementadas.
+  \item \ok\ Compose de producción incluye MinIO y un contenedor \code{minio-init} de inicialización única.
+  \item \ok\ Política preparada para el usuario de aplicación y bucket privado.
+  \item \pending\ Crear el bucket/usuario en la VM de datos ejecutando el Compose real.
+  \item \pending\ Migrar los objetos locales y verificar conteo/checksum.
+  \item \pending\ Configurar el hostname público y probar PDF/imágenes firmadas desde Internet.
+  \item \pending\ Implementar copia offsite y prueba de restauración.
+\end{itemize}
+
+\section{Desarrollo local y validaciones realizadas}
+
+El entorno local usa PostgreSQL y MinIO en Compose, FastAPI y Vite. El proxy de Vite envía \code{/api} al backend local. Durante la depuración se detectaron dos procesos Vite simultáneos: uno antiguo atendía por IPv6 \code{::1} y devolvía el HTML de \code{index.html} a llamadas API, lo que provocaba errores JSON y pantallas 404. Al detener el proceso obsoleto y dejar una sola instancia, se verificaron nuevamente catálogo y detalle.
+
+Pruebas ya completadas:
+\begin{itemize}
+  \item La API local devuelve \code{total=42} para productos.
+  \item El catálogo y las fichas se abren correctamente en navegador.
+  \item Las imágenes y PDF disponibles se relacionan con el producto.
+  \item Las imágenes Docker locales del frontend y backend se construyeron.
+  \item En el Compose de producción local, \code{/healthz} respondió correctamente.
+  \item \code{/api/ready} respondió \code{\{"status":"ready"\}}.
+  \item \code{/api/products?page_size=1} confirmó un total de 42.
+  \item El backend quedó en estado saludable detrás de Nginx.
+\end{itemize}
+
+\begin{warningbox}
+Si el catálogo local vuelve a desaparecer, comprobar primero que exista una sola instancia Vite y que \code{/api/products} responda JSON, no HTML. Después revisar el backend, la URL de base de datos y la carga de datos. No modificar inventario hasta descartar el conflicto de puertos/procesos.
+\end{warningbox}
+
+\section{Repositorio, GitFlow y entrega de imágenes}
+
+\subsection{Repositorio y ramas}
+
+\begin{itemize}
+  \item Repositorio: \href{https://github.com/sebaswaton/alfil-tienda}{sebaswaton/alfil-tienda}.
+  \item Flujo acordado: \code{feature/* -> develop -> main}.
+  \item Rama actual documentada: \code{feature/deployment-production}.
+  \item Commit actual: \code{5ff035e}, mensaje \emph{feat: prepare production deployment on virtual machines}.
+  \item Commit de imágenes: \code{184e329}, mensaje \emph{build: add production container images}.
+  \item \code{develop}: \code{6896ca6}.
+  \item \code{main}: \code{cc3a239}, etiqueta \code{v1.0.0} de la publicación inicial.
+\end{itemize}
+
+El workflow \code{.github/workflows/container-images.yml} construye y publica frontend/backend en GHCR cuando hay push a \code{develop}, \code{main} o tags, y valida pull requests hacia \code{develop}/\code{main}. Al permanecer el trabajo en la rama feature, la publicación productiva todavía requiere pull request y merge.
+
+\subsection{Regla de promoción}
+
+\begin{enumerate}
+  \item Abrir PR de \code{feature/deployment-production} a \code{develop}.
+  \item Ejecutar lint, build, pruebas y construcción de contenedores.
+  \item Validar el entorno de integración.
+  \item Abrir PR de \code{develop} a \code{main}.
+  \item Crear tag de release, propuesto \code{v1.1.0}.
+  \item Desplegar por tag o digest inmutable; nunca depender de \code{latest} para rollback.
+\end{enumerate}
+
+\section{Arquitectura de producción decidida}
+
+\subsection{Decisión: dos VM, sin Kubernetes}
+
+Se evaluó reutilizar el clúster Kubernetes existente en vSphere, compuesto por bastion, balanceadores, tres masters, tres workers, DNS y NFS. El usuario decidió continuar con la arquitectura inicial sin Kubernetes. La solución vigente reduce complejidad operativa para el tamaño actual y separa el plano expuesto del plano de datos.
+
+\begin{center}
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  node distance=7mm and 10mm,
+  box/.style={draw=line,rounded corners=2mm,fill=white,minimum height=10mm,align=center,text width=34mm},
+  host/.style={draw=alfil,rounded corners=2mm,fill=none,inner sep=5mm},
+  arr/.style={-{Latex[length=2mm]},thick,color=alfil}
+]
+\node[box] (internet) {Internet\\cliente};
+\node[box,right=of internet] (edge) {Cloudflare\\DNS + HTTPS};
+\node[box,right=of edge] (tunnel) {Cloudflare Tunnel\\salida TCP 443};
+
+\node[box,below=16mm of tunnel] (frontend) {Frontend\\Nginx + React};
+\node[box,below=of frontend] (backend) {Backend\\FastAPI};
+\node[host,fit=(frontend)(backend),label={[font=\bfseries\small]above:ALFIL-WEB-PROD 192.168.18.4}] (webhost) {};
+
+\node[box,right=24mm of frontend] (pg) {PostgreSQL 16\\TCP 5432};
+\node[box,below=of pg] (obj) {MinIO\\TCP 9000};
+\node[host,fit=(pg)(obj),label={[font=\bfseries\small]above:ALFIL-DATA-PROD 192.168.18.21}] (datahost) {};
+
+\draw[arr] (internet) -- (edge);
+\draw[arr] (edge) -- (tunnel);
+\draw[arr] (tunnel) -- (frontend);
+\draw[arr] (frontend) -- (backend);
+\draw[arr] (backend) -- node[above,font=\scriptsize]{LAN privada} (pg);
+\draw[arr] (backend) -- (obj);
+\draw[arr,dashed] (tunnel) to[bend left=18] node[above,font=\scriptsize]{media.dominio} (obj);
+\end{tikzpicture}
+}
+\end{center}
+
+\subsection{Servicios por VM}
+
+\begin{tabularx}{\textwidth}{L{4.0cm}Y Y}
+\toprule
+ & \textbf{ALFIL-WEB-PROD} & \textbf{ALFIL-DATA-PROD}\\
+\midrule
+IP & 192.168.18.4/24 & 192.168.18.21/24\\
+Servicios & Nginx/React, FastAPI, cloudflared & PostgreSQL 16, MinIO, minio-init\\
+Directorio configuración & \code{/opt/alfil/app} & \code{/opt/alfil/data}\\
+Datos persistentes & Solo configuración/log Docker & \code{/srv/alfil/postgres}, \code{/srv/alfil/minio}, copias\\
+Exposición & Túnel saliente; diagnóstico Nginx solo loopback 8080 & Solo LAN desde IP web; consola MinIO 9001 solo loopback\\
+Puertos internos & Salida a 5432 y 9000 & Entrada 5432 y 9000 únicamente desde 192.168.18.4\\
+\bottomrule
+\end{tabularx}
+
+Los contenedores de aplicación usan sistemas de archivos de solo lectura cuando es posible, \code{tmpfs}, \code{no-new-privileges} y rotación de logs de 10 MB por 5 archivos. El túnel es administrado remotamente y solo inicia conexiones salientes, por lo que no se requiere IP pública.
+
+\subsection{Dominio y nombres}
+
+Se necesita \textbf{un solo dominio registrado}. Dentro de él se crean, como mínimo:
+\begin{itemize}
+  \item \code{tienda.<dominio>} o \code{www.<dominio>}: frontend y API bajo el mismo origen, con \code{/api}.
+  \item \code{media.<dominio>}: acceso a imágenes y PDF firmados desde MinIO.
+\end{itemize}
+
+No se publica \code{api.<dominio>} porque Nginx resuelve \code{/api}. Tampoco se expone la consola MinIO.
+
+\section{Estado actual de infraestructura}
+
+\subsection{ALFIL-WEB-PROD}
+
+\begin{tabularx}{\textwidth}{L{5.0cm}Y}
+\toprule
+\textbf{Componente} & \textbf{Estado verificado}\\
+\midrule
+Sistema & Ubuntu 24.04.4 LTS, kernel 6.8.0-136, VMware.\\
+Hostname & \code{alfil-web-prod}.\\
+Interfaz & \code{ens33}, MAC \code{00:50:56:bc:e6:14}.\\
+Red & IP estática \code{192.168.18.4/24}; gateway \code{192.168.18.2}; DNS \code{96.45.45.45} y \code{96.45.46.46}.\\
+SSH & Activo.\\
+Disco & \code{/dev/sda} 100 GB; raíz LVM 48.47 GB y aproximadamente 48.47 GB libres en el VG durante la verificación.\\
+Pendiente & Extender la raíz si se decide aprovechar el VG libre; confirmar Docker, directorios, reservas DHCP, SSH por clave, firewall y retiro de ISO.\\
+\bottomrule
+\end{tabularx}
+
+La ampliación de LVM en esta VM se dejó explícitamente pendiente a pedido del usuario. La VM es operativa, pero aún no es un host de aplicación terminado.
+
+\subsection{ALFIL-DATA-PROD}
+
+\begin{tabularx}{\textwidth}{L{5.0cm}Y}
+\toprule
+\textbf{Componente} & \textbf{Estado verificado}\\
+\midrule
+Sistema & Ubuntu 24.04.4 LTS sobre VMware.\\
+Hostname & \code{alfil-data-prod}.\\
+Interfaz & \code{ens33}, MAC \code{00:50:56:bc:73:14}.\\
+Red & IP estática \code{192.168.18.21/24}; gateway \code{192.168.18.2}; DNS \code{96.45.45.45} y \code{96.45.46.46}.\\
+SSH & Activo.\\
+Sistema & \code{/dev/sda} 50 GB; raíz LVM extendida a 47 GB, 37 GB disponibles, 18\% usado en la última salida.\\
+Datos & \code{/dev/sdb1} XFS 200 GB montado en \code{/srv/alfil}; 197 GB disponibles.\\
+Persistencia & Entrada prevista: \code{LABEL=alfil-data /srv/alfil xfs defaults,noatime 0 0}.\\
+Pendiente & Confirmar \code{systemctl daemon-reload} y \code{findmnt --verify}; Docker, directorios, permisos, reservas DHCP, ACL, secretos y despliegue.\\
+\bottomrule
+\end{tabularx}
+
+La advertencia de \code{mount -a} indicaba que systemd aún conservaba la versión anterior de \code{/etc/fstab}. El montaje está activo; falta registrar explícitamente la verificación posterior al \code{daemon-reload}.
+
+\subsection{Matriz general}
+
+\begin{longtable}{L{6.2cm}L{2.2cm}L{7.1cm}}
+\toprule
+\textbf{Elemento} & \textbf{Estado} & \textbf{Evidencia o siguiente control}\\
+\midrule
+\endhead
+Código funcional & \ok & Frontend/API y datos verificados localmente.\\
+Dockerfiles/Compose de producción & \ok & Archivos en \code{deploy/production}; prueba local satisfactoria.\\
+Ramas y remoto GitHub & \ok & Feature publicada; develop/main existentes.\\
+VM web instalada y en red & \ok & 192.168.18.4, SSH activo.\\
+VM datos instalada y en red & \ok & 192.168.18.21, SSH activo.\\
+Disco de datos persistente & \ok & XFS montado en \code{/srv/alfil}.\\
+Reserva DHCP/exclusión & \pending & Confirmar en router/DHCP para .4 y .21.\\
+Docker en ambas VM & \pending & Ejecutar \code{docker version}, \code{docker compose version} y \code{systemctl is-active docker}.\\
+Hardening SSH/firewall & \pending & Claves, prueba, luego desactivar password; reglas mínimas LAN.\\
+Secrets producción & \pending & Generar localmente en VM, modo 600, nunca Git.\\
+Publicación GHCR & \pending & PR feature->develop, luego main/tag.\\
+PostgreSQL/MinIO productivos & \pending & Levantar primero en VM de datos.\\
+Migración inventario/objetos & \pending & Dump/restore y mirror con validación.\\
+Aplicación productiva & \pending & Pull por tag, up, healthchecks.\\
+Dominio/Cloudflare & \pending & Dominio definitivo, túnel y hostnames.\\
+Copias offsite/restore drill & \pending & Obligatorio antes de salida comercial.\\
+Monitoreo y alertas & \pending & Salud, disco, logs y caducidad de certificados/túnel.\\
+\bottomrule
+\end{longtable}
+
+\section{Plan original de despliegue y progreso}
+
+\begin{longtable}{L{1.2cm}L{4.1cm}L{2.1cm}L{7.5cm}}
+\toprule
+\textbf{Fase} & \textbf{Objetivo} & \textbf{Estado} & \textbf{Trabajo restante}\\
+\midrule
+\endhead
+0 & Gobierno y decisiones & Parcial & Definir dominio, responsables, ventana, RPO/RTO, reserva DHCP y política de respaldos.\\
+1 & Base de VM & Parcial & IP/hostname/discos listos; falta actualización, herramientas VMware, SSH por clave, firewall, ISO y verificaciones finales.\\
+2 & Runtime Docker & \pending & Instalar desde repositorio oficial en ambas VM, habilitar servicio y validar Compose.\\
+3 & Release por GitFlow & \pending & PR a develop, validación, PR a main, tag v1.1.0, GHCR y pin de digest/tag.\\
+4 & Capa de datos & \pending & Crear rutas, secretos, levantar PostgreSQL/MinIO y restringir puertos.\\
+5 & Migración & \pending & Dump/restauración PostgreSQL y mirror MinIO; verificar 42 productos, 2,898 unidades y objetos.\\
+6 & Capa web & \pending & Configurar variables, credencial GHCR de lectura, pull y Compose.\\
+7 & Cloudflare/DNS & \pending & Túnel remoto, \code{tienda} y \code{media}, TLS y pruebas externas.\\
+8 & Aceptación & \pending & Funcional, responsive, contenido, seguridad y rendimiento.\\
+9 & Operación & \pending & Backups, copia offsite, restore drill, logs, alertas y runbook.\\
+10 & Corte/rollback & \pending & Ventana, smoke test, registro de digest y reversión ensayada.\\
+\bottomrule
+\end{longtable}
+
+\section{Runbook detallado de lo que falta}
+
+\subsection{Paso 1: cerrar preparación base de ambas VM}
+
+Ejecutar en \textbf{cada VM} y guardar la salida en el registro de despliegue:
+
+\begin{lstlisting}
+hostnamectl
+ip -br address
+ip route
+resolvectl status ens33
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
+df -hT
+systemctl is-active ssh
+timedatectl
+\end{lstlisting}
+
+En la VM de datos, además:
+\begin{lstlisting}
+sudo systemctl daemon-reload
+sudo findmnt --verify
+findmnt /srv/alfil
+df -hT /srv/alfil
+\end{lstlisting}
+
+Confirmar reserva o exclusión DHCP de \code{192.168.18.4} y \code{192.168.18.21}. Instalar actualizaciones con ventana controlada, verificar \code{open-vm-tools}, retirar la ISO virtual y tomar un snapshot de base limpia. El snapshot no reemplaza un backup.
+
+\subsection{Paso 2: instalar y validar Docker}
+
+Usar el repositorio oficial de Docker para Ubuntu, no paquetes desconocidos. La referencia operativa es \href{https://docs.docker.com/engine/install/ubuntu/}{docs.docker.com/engine/install/ubuntu}. Al finalizar, en \textbf{ambas VM}:
+
+\begin{lstlisting}
+sudo docker version
+sudo docker compose version
+systemctl is-enabled docker
+systemctl is-active docker
+\end{lstlisting}
+
+Agregar al usuario al grupo Docker solo si se acepta que ese grupo equivale prácticamente a privilegios root; si no, operar con \code{sudo docker}.
+
+\subsection{Paso 3: endurecimiento mínimo}
+
+\begin{enumerate}
+  \item Copiar una clave SSH administrativa y comprobar una segunda sesión antes de cambiar autenticación.
+  \item Desactivar login root y, solo después de la prueba, contraseña SSH.
+  \item Permitir SSH únicamente desde la red de administración/bastion.
+  \item En datos, permitir TCP 5432 y 9000 solo desde \code{192.168.18.4}; 9001 solo loopback/SSH tunnel.
+  \item Mantener PostgreSQL, MinIO y API administrativa fuera de Internet.
+  \item Aplicar actualizaciones periódicas y registrar reinicios.
+\end{enumerate}
+
+\subsection{Paso 4: producir la release}
+
+Desde el repositorio:
+
+\begin{enumerate}
+  \item Revocar el token GitHub expuesto y crear credenciales mínimas nuevas.
+  \item Incorporar esta documentación a la rama feature.
+  \item PR \code{feature/deployment-production -> develop}.
+  \item Validar CI y pruebas.
+  \item PR \code{develop -> main}.
+  \item Crear tag \code{v1.1.0} o el número aprobado.
+  \item Confirmar imágenes GHCR de frontend y backend y registrar sus digests.
+\end{enumerate}
+
+\subsection{Paso 5: desplegar la VM de datos}
+
+En \textbf{ALFIL-DATA-PROD}:
+
+\begin{lstlisting}
+sudo mkdir -p /opt/alfil/data
+sudo mkdir -p /srv/alfil/postgres /srv/alfil/minio /srv/alfil/backups/postgres
+sudo chown -R administrator:administrator /opt/alfil/data /srv/alfil
+\end{lstlisting}
+
+Copiar \code{deploy/production/data/compose.yml}, la política MinIO y el script de backup a \code{/opt/alfil/data}. Crear \code{.env.production} desde el ejemplo, generar contraseñas distintas y largas, establecer \code{DATA_BIND_IP=192.168.18.21} y aplicar modo 600. No copiar ningún secreto al repositorio.
+
+Levantar y validar:
+
+\begin{lstlisting}
+cd /opt/alfil/data
+sudo docker compose --env-file .env.production pull
+sudo docker compose --env-file .env.production up -d
+sudo docker compose --env-file .env.production ps
+sudo docker compose --env-file .env.production logs --tail=100 postgres minio minio-init
+\end{lstlisting}
+
+Verificar salud, bucket, usuario/política y persistencia tras reinicio controlado.
+
+\subsection{Paso 6: migrar datos locales}
+
+\textbf{PostgreSQL.} Congelar importaciones/cambios, generar un \code{pg_dump} en formato custom, calcular SHA-256, transferir por SCP/rsync, restaurar en la base productiva y comparar tablas/conteos. Mantener el dump cifrado y eliminarlo del área temporal conforme a la política.
+
+\textbf{MinIO.} Configurar aliases de origen/destino con \code{mc}, ejecutar \code{mc mirror}, comparar cantidad/tamaño y muestrear checksum. Las referencias \code{minio://alfil-catalog/...} deben permanecer iguales.
+
+\textbf{Criterios de migración:}
+\begin{itemize}
+  \item 42 productos visibles y 2,898 unidades totales.
+  \item 8 categorías y 13 marcas.
+  \item 16 productos con imagen y 22 con PDF como mínimo, salvo mejoras posteriores aprobadas.
+  \item 88 fuentes, 126 FAQ y solicitudes existentes preservadas.
+  \item Imágenes/PDF accesibles mediante firma, no por lectura pública del bucket.
+\end{itemize}
+
+\subsection{Paso 7: desplegar la VM web}
+
+En \textbf{ALFIL-WEB-PROD}:
+
+\begin{lstlisting}
+sudo mkdir -p /opt/alfil/app
+sudo chown administrator:administrator /opt/alfil/app
+\end{lstlisting}
+
+Copiar \code{deploy/production/app/compose.yml}; crear \code{.env.production} con URL PostgreSQL hacia \code{192.168.18.21:5432}, MinIO interno en \code{192.168.18.21:9000}, host público \code{media.<dominio>}, origen permitido \code{https://tienda.<dominio>}, claves administrativas, token del túnel y \code{APP_VERSION} inmutable. Si GHCR es privado, autenticar con credencial de solo lectura.
+
+\begin{lstlisting}
+cd /opt/alfil/app
+sudo docker compose --env-file .env.production pull
+sudo docker compose --env-file .env.production up -d
+sudo docker compose --env-file .env.production ps
+curl -fsS http://127.0.0.1:8080/healthz
+curl -fsS http://127.0.0.1:8080/api/ready
+curl -fsS 'http://127.0.0.1:8080/api/products?page_size=1'
+\end{lstlisting}
+
+\subsection{Paso 8: Cloudflare, dominio y publicación}
+
+Crear un túnel administrado remotamente en Cloudflare. Enrutamientos:
+
+\begin{itemize}
+  \item \code{tienda.<dominio>} $\rightarrow$ \code{http://frontend:80} dentro del Compose web.
+  \item \code{media.<dominio>} $\rightarrow$ \code{http://192.168.18.21:9000}.
+\end{itemize}
+
+No publicar 5432, 9001, 8000/8001 ni un hostname directo del backend. Probar DNS, TLS, redirecciones, encabezados, expiración de URLs y acceso desde una red externa. Referencia: \href{https://developers.cloudflare.com/tunnel/}{developers.cloudflare.com/tunnel}.
+
+\subsection{Paso 9: aceptación funcional y no funcional}
+
+\begin{itemize}
+  \item Inicio, catálogo, marcas, contacto, 404 y detalle abren por HTTPS.
+  \item Carrusel ocupa el ancho, flechas/puntos funcionan y no rompe móvil.
+  \item Menú de categorías ocupa el viewport, anima izquierda-derecha y enlaces filtran.
+  \item Buscador, filtros y paginación mantienen consistencia.
+  \item La API reporta 42 productos y las categorías vacías permanecen.
+  \item Se abren imágenes y PDF; un enlace vencido deja de ser válido.
+  \item La solicitud de cotización queda persistida y WhatsApp usa el contacto correcto.
+  \item Swagger/ReDoc no están disponibles en producción.
+  \item No hay carrito, checkout ni pasarela.
+  \item Se prueba escritorio, tableta, móvil, teclado, contraste y textos alternativos.
+  \item Se ejecuta un smoke test de concurrencia/rendimiento y se revisan logs sin secretos.
+\end{itemize}
+
+\subsection{Paso 10: backups, monitoreo y corte}
+
+Programar backup PostgreSQL con el script existente, retención definida y copia fuera de la VM. Para MinIO, implementar mirror a otro almacenamiento/S3. Realizar una restauración de prueba antes de producción. Alertar por caída de healthchecks, disco, memoria, errores 5xx y fallo de backup.
+
+Para el corte, registrar tag y digest, snapshot previo, hora, responsables y smoke test. El rollback de código consiste en cambiar \code{APP_VERSION} a la versión anterior y recrear contenedores. Si hubo migración de esquema incompatible, usar un procedimiento de rollback de base explícito; no restaurar datos sin confirmar el impacto de solicitudes nuevas.
+
+\section{Seguridad y operación}
+
+\subsection{Controles mínimos antes de publicar}
+
+\begin{itemize}
+  \item Revocar tokens expuestos; credenciales separadas y de mínimo privilegio.
+  \item \code{.env.production} con modo 600 y excluido de Git y backups no cifrados.
+  \item Contraseñas diferentes para PostgreSQL, MinIO root, usuario de app y admin API.
+  \item Bucket privado; URL firmada; límite MIME, firma, tamaño y nombre.
+  \item Red de datos no pública; ACL por IP y puertos.
+  \item SSH por clave, root deshabilitado, acceso restringido y logs de autenticación.
+  \item Imágenes/servicios fijados a versión/digest; revisar dependencias y CVE.
+  \item Rate limit, anti-spam y/o CAPTCHA para el formulario antes de exposición masiva.
+  \item Política de privacidad y tratamiento de datos de contacto.
+\end{itemize}
+
+\subsection{RPO, RTO y retención por definir}
+
+El negocio debe aprobar cuánto dato puede perder y cuánto tiempo puede permanecer fuera de servicio. Como punto inicial: backup PostgreSQL diario, retención local corta y copia offsite; mirror diario/incremental de MinIO; prueba de restauración trimestral. Los snapshots vSphere son auxiliares y no sustituyen backups independientes.
+
+\section{Riesgos, deuda técnica y mejoras}
+
+\begin{longtable}{L{5.0cm}L{2.2cm}L{7.8cm}}
+\toprule
+\textbf{Riesgo/deuda} & \textbf{Prioridad} & \textbf{Tratamiento recomendado}\\
+\midrule
+Token GitHub expuesto & \critical & Revocar, auditar y reemplazar por token mínimo.\\
+Sin Alembic & Alta & Incorporar migraciones antes de evolucionar el esquema productivo; actualmente se usa \code{Base.metadata.create_all}.\\
+Formulario sin notificación & Alta & Implementar correo/webhook o panel operativo; hoy solo persiste en base.\\
+Sin rate limit/anti-spam & Alta & Proteger \code{/api/inquiries} y endpoint de carga.\\
+Backups solo preparados & Alta & Activar calendario, copia offsite, alertas y restore drill.\\
+Imágenes/PDF incompletos & Media & Completar 26 imágenes y 20 PDF restantes usando fuentes autorizadas.\\
+Una fuente faltante & Media & Investigar \code{HP-W1950X} y registrar URL oficial verificable.\\
+Números de parte vacíos & Media & Confirmar seis SKUs con documentos/etiquetas físicas.\\
+Tags \code{latest} & Alta & Fijar imagen MinIO/cloudflared y aplicación a versión o digest.\\
+Sin monitoreo central & Media & Métricas, uptime, logs y alertas de capacidad/backup.\\
+Secretos en archivos & Media & Inicialmente modo 600; evolucionar a gestor de secretos si la operación crece.\\
+Una sola VM por capa & Media & Aceptar como fase inicial; respaldos y runbook son obligatorios. Escalar a HA solo con necesidad y capacidad operativa.\\
+\bottomrule
+\end{longtable}
+
+\section{Definición de terminado}
+
+El despliegue se considera terminado cuando se cumplen y documentan todos los puntos siguientes:
+
+\begin{enumerate}
+  \item Release aprobada en \code{main}, tag y digests registrados.
+  \item Docker saludable y reinicio automático validado en ambas VM.
+  \item PostgreSQL y MinIO persistentes, privados y accesibles solo según la matriz de red.
+  \item Catálogo productivo con 42 productos/2,898 unidades y relaciones verificadas.
+  \item Sitio accesible por HTTPS mediante dominio definitivo, sin IP pública.
+  \item Imágenes, PDF, consulta y WhatsApp validados desde una red externa.
+  \item No existen secretos en Git, logs, PDF ni historial de comandos compartido.
+  \item Backup automático exitoso, copia offsite y restauración de prueba registrada.
+  \item Monitoreo/alertas y responsables de soporte definidos.
+  \item Procedimiento de actualización y rollback probado.
+  \item Aceptación funcional y visual de gerencia registrada.
+\end{enumerate}
+
+\section{Próximo paso exacto}
+
+Antes de desplegar servicios, confirmar Docker en \textbf{ambas VM}. Ejecutar y compartir únicamente estas salidas, sin secretos:
+
+\begin{lstlisting}
+sudo docker version
+sudo docker compose version
+systemctl is-active docker
+\end{lstlisting}
+
+Si Docker no está instalado, instalarlo desde el repositorio oficial. Cuando ambas respuestas sean correctas, continuar primero con \textbf{ALFIL-DATA-PROD}: crear rutas, secretos y levantar PostgreSQL/MinIO. Solo después migrar datos y desplegar \textbf{ALFIL-WEB-PROD}.
+
+\appendix
+\clearpage
+\begin{landscape}
+\section{Anexo A: inventario exacto visible en la web}
+\scriptsize
+\begin{longtable}{r L{3.0cm} L{3.1cm} L{7.7cm} r r r r}
+\toprule
+\textbf{N} & \textbf{SKU} & \textbf{Parte} & \textbf{Producto} & \textbf{Stock} & \textbf{Img.} & \textbf{PDF} & \textbf{Fuentes}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{N} & \textbf{SKU} & \textbf{Parte} & \textbf{Producto} & \textbf{Stock} & \textbf{Img.} & \textbf{PDF} & \textbf{Fuentes}\\
+\midrule
+\endhead
+1 & HP-MINI-260-G4 & 246F4LT\#ABM & HP Desktop Mini 260 G4 i3 & 7 & 0 & 0 & 1\\
+2 & HP-MINI-400-G9 & A00NGLS\#ABM & HP Pro Mini 400 G9 i5 & 4 & 1 & 1 & 4\\
+3 & 6V9T9LS-USED & 6V9T9LS & HP ProDesk 400 G7 SFF i5 16GB & 1 & 1 & 1 & 4\\
+4 & HP-400-G7-SFF & 6V9T9LS\#ABM & HP ProDesk 400 G7 SFF i5 32GB 1TB & 6 & 1 & 1 & 4\\
+5 & 3E3T0LS-USED & 3E3T0LS\#ABM & HP ProDesk 600 G6 Mini i5 16GB 256GB SSD & 1 & 0 & 0 & 1\\
+6 & HP-PROONE-400-G4-AIO & 5DV82LA\#ABM & HP ProOne 400 G4 All-in-One 23.8 pulgadas & 6 & 1 & 1 & 3\\
+7 & HP-PROONE-440-G9-AIO & 787M0LA\#ABM & HP ProOne 440 G9 All-in-One 23.8 pulgadas & 1 & 1 & 1 & 4\\
+8 & 6Q0G1LS-USED & 6Q0G1LS & HP Z2 G8 SFF Workstation i7 & 1 & 1 & 1 & 4\\
+9 & HP-Z2-G8-SFF & 6C5J4LS\#ABM-FF-C1 & HP Z2 G8 SFF Workstation i7 & 8 & 1 & 1 & 4\\
+10 & HP-Z2-TOWER-G9 & 823G8LA\#ABM & HP Z2 Tower G9 Workstation i7 & 2 & 0 & 0 & 1\\
+11 & HP-Z4-G4T & 877Z9LS\#ABM-FF-C1 & HP Z4 G4T Workstation Xeon W2295 & 13 & 1 & 1 & 4\\
+12 & HP-ZB16G10-I7 & 860Y3LA\#ABM & HP ZBook Firefly 16 G10 i7 & 2 & 1 & 1 & 4\\
+13 & HUAWEI-MATEPAD-11-5 & TXZ-W09 & Huawei MatePad 11.5 8GB 256GB & 20 & 0 & 1 & 2\\
+14 & HUAWEI-KA11-KB11 & KA11-KB11 & Huawei Smart Keyboard para MatePad 11.5 & 20 & 0 & 0 & 2\\
+15 & HP-240-G10 & Pendiente & Laptop HP 240 G10 14 pulgadas & 2 & 1 & 1 & 3\\
+16 & HP-240-G9 & Pendiente & Laptop HP 240 G9 14 pulgadas & 2 & 1 & 1 & 3\\
+17 & HP-250-G8 & Pendiente & Laptop HP 250 G8 15.6 pulgadas & 129 & 1 & 1 & 3\\
+18 & HP-P204V & L47850-B11 & Monitor HP P204v 19.5 pulgadas & 10 & 1 & 1 & 3\\
+19 & HP-P224 & L47536-001 & Monitor HP P224 21.5 pulgadas & 23 & 1 & 1 & 3\\
+20 & HP-P22V-G4 & L96110-004 & Monitor HP P22v G4 21.5 pulgadas & 1 & 1 & 1 & 3\\
+21 & HP-P24-G4 & 1A7E5AA\#ABA & Monitor HP P24 G4 23.8 pulgadas & 139 & 0 & 0 & 1\\
+22 & HP-P27H-G5 & 64W41AA & Monitor HP P27h G5 FHD & 40 & 0 & 0 & 1\\
+23 & CISCO-C2960X-USED & C2960X & Switch Cisco Catalyst WS-C2960X-48FPD-L & 3 & 0 & 0 & 1\\
+24 & AVAGO-AFBR-57F5MZ & Pendiente & Transceiver Avago AFBR-57F5MZ-ELX & 4 & 0 & 0 & 1\\
+25 & BROCADE-32G-SW-SEC & 57-1000485-01 & Transceiver Brocade 32G SW-SEC & 1 & 0 & 0 & 1\\
+26 & CISCO-GLC-LH-SM & Pendiente & Transceiver Cisco GLC-LH-SM & 4 & 0 & 0 & 1\\
+27 & CISCO-GLC-SX-MM & 30-1301-02 & Transceiver Cisco GLC-SX-MM & 5 & 0 & 0 & 1\\
+28 & CISCO-GLC-SX-MMD-USED & 10-2626-01 & Transceiver Cisco GLC-SX-MMD & 1 & 0 & 0 & 1\\
+29 & CISCO-GLC-T & Pendiente & Transceiver Cisco GLC-T & 6 & 0 & 0 & 1\\
+30 & CISCO-SFP-10G-SR & 10-2415-03 & Transceiver Cisco SFP-10G-SR & 38 & 0 & 1 & 2\\
+31 & HP-X130-10G-SR & AFBR-703SDZ-HP8 & Transceiver HP X130 10G SFP+ LC SR & 1 & 1 & 1 & 3\\
+32 & HUAWEI-10G-02310MNW & 02310MNW & Transceiver Huawei SFP-10G-USR & 6 & 0 & 0 & 1\\
+33 & HUAWEI-SFP-GE-SX-MM850 & 02315204 & Transceiver Huawei SFP-GE-SX-MM850 & 1 & 0 & 1 & 1\\
+34 & LENOVO-1000BASE-T & 78P3824 & Transceiver Lenovo 1000BASE-T & 4 & 0 & 0 & 1\\
+35 & CANON-GPR-63 & GPR-63 & Tóner Canon GPR-63 & 195 & 0 & 1 & 2\\
+36 & HP-145X & W1450X & Tóner HP 145X & 70 & 0 & 0 & 1\\
+37 & HP-145X-STARTER & 145X-STARTER & Tóner HP 145X de inicio & 18 & 0 & 0 & 1\\
+38 & HP-W1950X & W1950X & Tóner HP W1950X & 138 & 0 & 0 & 0\\
+39 & HP-W9065MC & W9065MC & Tóner HP W9065MC & 624 & 0 & 1 & 2\\
+40 & HP-W9085-STARTER & W9085 & Tóner HP W9085 de inicio & 5 & 0 & 0 & 1\\
+41 & HP-W9085MC & W9085MC & Tóner HP W9085MC & 1,333 & 0 & 1 & 2\\
+42 & SALICRU-SLC-2000-TWIN & 699CA000017 & UPS Salicru SLC-2000-TWIN PRO2 IEC & 3 & 0 & 0 & 2\\
+\midrule
+\multicolumn{4}{r}{\textbf{Total}} & \textbf{2,898} & \textbf{16} & \textbf{22} & \textbf{88}\\
+\bottomrule
+\end{longtable}
+\normalsize
+\end{landscape}
+
+Todos los productos tienen 3 preguntas frecuentes; total 126.
+
+\section{Anexo B: archivos principales del repositorio}
+
+\begin{longtable}{L{7.2cm}L{8.0cm}}
+\toprule
+\textbf{Ruta} & \textbf{Propósito}\\
+\midrule
+\endhead
+\code{frontend/} & Aplicación React, estilos, rutas y activos públicos.\\
+\code{frontend/public/hero/carousel/} & Tres imágenes del carrusel.\\
+\code{frontend/public/brands/} & Trece logos de marcas.\\
+\code{backend/app/} & API, modelos, esquemas, servicios de base y MinIO.\\
+\code{backend/Dockerfile} & Imagen productiva FastAPI no-root.\\
+\code{frontend/Dockerfile} & Build Node y runtime Nginx.\\
+\code{deploy/production/app/compose.yml} & Stack de ALFIL-WEB-PROD.\\
+\code{deploy/production/app/.env.example} & Variables web documentadas, sin secretos reales.\\
+\code{deploy/production/data/compose.yml} & Stack PostgreSQL/MinIO.\\
+\code{deploy/production/data/.env.example} & Variables de datos documentadas.\\
+\code{deploy/production/data/backup-postgres.sh} & Script base de backup PostgreSQL.\\
+\code{deploy/production/README.md} & Instrucciones operativas del despliegue.\\
+\code{.github/workflows/container-images.yml} & Construcción/publicación GHCR.\\
+\code{docs/ALFIL_INFORME_TECNICO_DESPLIEGUE.tex} & Fuente de este informe.\\
+\code{CLAUDE.md} & Handoff operativo para continuar con Claude Code.\\
+\bottomrule
+\end{longtable}
+
+\section{Anexo C: referencias operativas}
+
+\begin{itemize}
+  \item \href{https://docs.docker.com/engine/install/ubuntu/}{Docker Engine: instalación oficial en Ubuntu}.
+  \item \href{https://developers.cloudflare.com/tunnel/}{Cloudflare Tunnel: documentación oficial}.
+  \item \href{https://netplan.readthedocs.io/en/stable/using-static-ip-addresses/}{Netplan: configuración de direcciones IP estáticas}.
+  \item \href{https://documentation.ubuntu.com/server/how-to/security/openssh-server/}{Ubuntu Server: configuración y seguridad de OpenSSH}.
+  \item \href{https://www.coolbox.pe/}{Coolbox: referencia de organización visual}.
+  \item \href{https://github.com/sebaswaton/alfil-tienda}{Repositorio GitHub de Alfil Tienda}.
+\end{itemize}
+
+\medskip
+\hrule
+\smallskip
+\textbf{Control documental.} Este informe representa el estado conocido al 20 de julio de 2026. Antes de ejecutar cambios destructivos, confirmar dispositivo, VM, ruta y backup. Las credenciales y tokens deben gestionarse fuera de este documento.
+
+\end{document}

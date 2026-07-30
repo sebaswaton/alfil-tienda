@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./IntroScreen.css";
 
-const SEEN_KEY = "alfil_intro_seen";
+const SEEN_KEY = "hwstore_intro_seen";
 
 export default function IntroScreen() {
   const [visible, setVisible] = useState(() => {
@@ -9,7 +9,7 @@ export default function IntroScreen() {
     // If the tab loads in the background, timers get throttled and the intro
     // can get stuck covering the page. Skip it entirely in that case.
     if (typeof document !== "undefined" && document.visibilityState === "hidden") {
-      try { sessionStorage.setItem(SEEN_KEY, "1"); } catch (e) {}
+      try { sessionStorage.setItem(SEEN_KEY, "1"); } catch {}
       return false;
     }
     return true;
@@ -25,7 +25,7 @@ export default function IntroScreen() {
     const finish = () => {
       if (finished) return;
       finished = true;
-      try { sessionStorage.setItem(SEEN_KEY, "1"); } catch (e) {}
+      try { sessionStorage.setItem(SEEN_KEY, "1"); } catch {}
       document.body.style.overflow = "";
       setVisible(false);
     };
@@ -60,8 +60,8 @@ export default function IntroScreen() {
       <div className="intro__panel intro__panel--bottom" />
 
       <div className="intro__content">
-        <img src="/alfil-logo.png" alt="" className="intro__logo" />
-        <div className="intro__tagline">Consultoría &amp; Comunicaciones</div>
+        <img src={`${import.meta.env.BASE_URL}hw-store-peru-logo.svg`} alt="" className="intro__logo" />
+        <div className="intro__tagline">Tecnología para empresas</div>
       </div>
     </div>
   );

@@ -109,8 +109,12 @@ export default function Header() {
     <>
     <header className={"site-header" + (scrolled ? " is-scrolled" : "")}>
       <div className="container site-header__row">
-        <NavLink to="/" className="site-header__brand" aria-label="Alfil CC — inicio">
-          <img src="/alfil-logo.png" alt="Alfil CC" className="site-header__logo" />
+        <NavLink to="/" className="site-header__brand" aria-label="HW Store Perú — inicio">
+          <img
+            src={`${import.meta.env.BASE_URL}hw-store-peru-logo.svg`}
+            alt="HW Store Perú"
+            className="site-header__logo"
+          />
         </NavLink>
 
         <button

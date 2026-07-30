@@ -28,3 +28,9 @@ versionarse.
 - `main`: versión estable de producción.
 - `develop`: integración de cambios.
 - `feature/*`: desarrollo de funcionalidades.
+
+## Producción
+
+El despliegue sin Kubernetes utiliza dos VMs, Docker Compose, GHCR y Cloudflare
+Tunnel. La guía y las plantillas se encuentran en
+[`deploy/production`](deploy/production/README.md).

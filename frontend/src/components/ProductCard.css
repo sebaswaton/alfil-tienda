@@ -84,6 +84,13 @@
   overflow: hidden;
 }
 
+.product-card__price {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--accent-deep);
+}
+
 .product-card__foot {
   display: flex;
   align-items: center;

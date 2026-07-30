@@ -6,19 +6,20 @@ import ProductCard from "../components/ProductCard";
 import TrustRow from "../components/TrustRow";
 import { useReveal, useStaggerReveal } from "../hooks/useReveal";
 import { useTilt } from "../hooks/useTilt";
+import { publicAsset } from "../utils/publicAsset";
 import "./Home.css";
 
 const HERO_SLIDES = [
   {
-    src: "/hero/carousel/carrusel-1.png",
+    src: `${import.meta.env.BASE_URL}hero/carousel/carrusel-1.png?v=4`,
     alt: "Infraestructura de TI para empresas: laptop, servidor, switch y punto de acceso.",
   },
   {
-    src: "/hero/carousel/carrusel-2.png?v=2",
+    src: `${import.meta.env.BASE_URL}hero/carousel/carrusel-2.png?v=4`,
     alt: "Soluciones de cómputo Alfil Store: tablet, laptop empresarial y equipo compacto.",
   },
   {
-    src: "/hero/carousel/carrusel-3.png",
+    src: `${import.meta.env.BASE_URL}hero/carousel/carrusel-3.png?v=4`,
     alt: "Infraestructura y conectividad: impresora empresarial, redes y grupo electrógeno.",
   },
 ];
@@ -133,7 +134,7 @@ function CategoryCard({ category }) {
     <Link ref={tilt} to={`/catalogo?category=${category.slug}`} className="category-card card bracket-corners">
       {category.image_url ? (
         <span className="category-card__photo" aria-hidden="true">
-          <img src={category.image_url} alt="" loading="lazy" />
+          <img src={publicAsset(category.image_url)} alt="" loading="lazy" />
         </span>
       ) : (
         <span className="category-card__visual" aria-hidden="true">
@@ -171,7 +172,7 @@ export default function Home() {
             <Link key={category.id} to={`/catalogo?category=${category.slug}`} className="home-category-nav__item">
               <span className="home-category-nav__visual" aria-hidden="true">
                 {category.image_url ? (
-                  <img src={category.image_url} alt="" />
+                  <img src={publicAsset(category.image_url)} alt="" />
                 ) : (
                   <svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></svg>
                 )}
@@ -185,7 +186,7 @@ export default function Home() {
       <section className="hero">
         {/* Visible headlines live inside the artwork; this h1 keeps the
             page accessible/SEO-friendly without duplicating the text. */}
-        <h1 className="sr-only">Alfil CC — Infraestructura de TI que sostiene tu operación</h1>
+        <h1 className="sr-only">HW Store Perú — tecnología e infraestructura para tu operación</h1>
         <HeroCarousel />
       </section>
 

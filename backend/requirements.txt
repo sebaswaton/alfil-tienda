@@ -10,3 +10,7 @@ minio>=7.2.0,<8.0.0
 python-multipart>=0.0.9,<1.0.0
 certifi>=2025.0.0
 Pillow>=11.0.0,<13.0.0
+
+# Solo lo usa passenger_wsgi.py (despliegue cPanel); el path Docker/VM
+# arranca con Uvicorn directamente y no lo necesita en runtime.
+a2wsgi>=1.10.0,<2.0.0

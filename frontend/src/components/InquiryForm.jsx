@@ -28,7 +28,7 @@ export default function InquiryForm({ productId, source = "contacto", title = "S
       <div className="inquiry-form card inquiry-form--done">
         <span className="eyebrow">Solicitud enviada</span>
         <p>
-          Gracias, {form.name || "estimado cliente"}. Un asesor de Alfil se comunicará contigo
+          Gracias, {form.name || "estimado cliente"}. Un asesor de HW Store se comunicará contigo
           a la brevedad para continuar con la cotización.
         </p>
         <button className="btn" onClick={() => setStatus("idle")}>Enviar otra solicitud</button>

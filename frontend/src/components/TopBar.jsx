@@ -18,11 +18,11 @@ export default function TopBar() {
             </svg>
             <span>+51 (1) 277-4085</span>
           </a>
-          <a href="mailto:ventas@alfilcc.com" className="topbar__item">
+          <a href="mailto:ventas@hwstore.com.pe" className="topbar__item">
             <svg viewBox="0 0 24 24" className="topbar__icon" aria-hidden="true">
               <path fill="currentColor" d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm0 4l-8 5-8-5V6l8 5 8-5z" />
             </svg>
-            <span>ventas@alfilcc.com</span>
+            <span>ventas@hwstore.com.pe</span>
           </a>
         </div>
       </div>

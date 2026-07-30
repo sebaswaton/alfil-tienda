@@ -52,7 +52,9 @@
 }
 
 .intro__logo {
-  height: 54px;
+  width: clamp(230px, 24vw, 360px);
+  max-height: 150px;
+  height: auto;
   width: auto;
   filter: none;
   opacity: 0;

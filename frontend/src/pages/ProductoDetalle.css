@@ -154,6 +154,13 @@
 .product-detail__commercial > p { color: var(--text-dim); font-size: var(--fs-sm); line-height: 1.5; margin: 0 0 18px; }
 .product-detail__commercial .btn { margin-top: 10px; }
 
+.product-detail__price {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent-deep);
+  margin-bottom: 6px;
+}
+
 .product-detail__commercial-stock {
   display: flex;
   align-items: center;

@@ -1,16 +1,38 @@
-// Empty base → same-origin "/api/*", which the Vite dev proxy forwards to the
-// backend. This keeps everything on one port (works through a single tunnel).
-const API_URL = import.meta.env.VITE_API_URL ?? "";
+// `config.js` lets a cPanel deployment set the API hostname after `npm build`
+// without rebuilding the frontend. Docker/VM builds can keep using VITE_API_URL,
+// and local development still falls back to the same-origin Vite proxy.
+const runtimeApiUrl = window.__ALFIL_CONFIG__?.API_URL;
+const API_URL = (runtimeApiUrl ?? import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
 async function request(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
   const res = await fetch(`${API_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: isFormData ? {} : { "Content-Type": "application/json" },
     ...options,
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.detail || `Error ${res.status}`);
   }
+  return res.json();
+}
+
+async function adminRequest(path, options = {}) {
+  const token = localStorage.getItem("hwstore_admin_token");
+  const isFormData = options.body instanceof FormData;
+  const headers = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
+  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const error = new Error(body.detail || `Error ${res.status}`);
+    error.status = res.status;
+    throw error;
+  }
+  if (res.status === 204) return null;
   return res.json();
 }
 
@@ -28,4 +50,88 @@ export const api = {
   getRelated: (slug) => request(`/api/products/${slug}/related`),
   createInquiry: (payload) =>
     request("/api/inquiries", { method: "POST", body: JSON.stringify(payload) }),
+};
+
+export const adminApi = {
+  login: (payload) =>
+    adminRequest("/api/admin/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  me: () => adminRequest("/api/admin/me"),
+  logout: () => adminRequest("/api/admin/logout", { method: "POST" }),
+  getProducts: (params = {}) => {
+    const query = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, value]) => value !== ""))
+    ).toString();
+    return adminRequest(`/api/admin/products${query ? `?${query}` : ""}`);
+  },
+  getProduct: (id) => adminRequest(`/api/admin/products/${id}`),
+  createProduct: (payload) =>
+    adminRequest("/api/admin/products", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateProduct: (id, payload) =>
+    adminRequest(`/api/admin/products/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  patchProduct: (id, payload) =>
+    adminRequest(`/api/admin/products/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  setProductStatus: (id, status) =>
+    adminRequest(`/api/admin/products/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  archiveProduct: (id) =>
+    adminRequest(`/api/admin/products/${id}`, { method: "DELETE" }),
+  uploadMedia: (slug, formData) =>
+    adminRequest(`/api/products/${slug}/media`, {
+      method: "POST",
+      body: formData,
+    }),
+  getImages: (id) => adminRequest(`/api/admin/products/${id}/images`),
+  uploadImage: (id, formData) =>
+    adminRequest(`/api/admin/products/${id}/images`, { method: "POST", body: formData }),
+  updateImage: (id, imageId, payload) =>
+    adminRequest(`/api/admin/products/${id}/images/${imageId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteImage: (id, imageId) =>
+    adminRequest(`/api/admin/products/${id}/images/${imageId}`, { method: "DELETE" }),
+  getDocuments: (id) => adminRequest(`/api/admin/products/${id}/documents`),
+  uploadDocument: (id, formData) =>
+    adminRequest(`/api/admin/products/${id}/documents`, { method: "POST", body: formData }),
+  deleteDocument: (id, documentId) =>
+    adminRequest(`/api/admin/products/${id}/documents/${documentId}`, { method: "DELETE" }),
+  listTaxonomy: (resource, params = {}) => {
+    const query = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, value]) => value !== ""))
+    ).toString();
+    return adminRequest(`/api/admin/${resource}${query ? `?${query}` : ""}`);
+  },
+  createTaxonomy: (resource, payload) =>
+    adminRequest(`/api/admin/${resource}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateTaxonomy: (resource, id, payload) =>
+    adminRequest(`/api/admin/${resource}/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  setTaxonomyStatus: (resource, id, isActive) =>
+    adminRequest(`/api/admin/${resource}/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_active: isActive }),
+    }),
+  deleteTaxonomy: (resource, id) =>
+    adminRequest(`/api/admin/${resource}/${id}`, { method: "DELETE" }),
+  replaceTaxonomyAsset: (resource, id, asset, formData) =>
+    adminRequest(`/api/admin/${resource}/${id}/${asset}`, { method: "PUT", body: formData }),
 };

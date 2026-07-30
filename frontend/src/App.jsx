@@ -11,6 +11,7 @@ import ProductoDetalle from "./pages/ProductoDetalle";
 import Marcas from "./pages/Marcas";
 import Contacto from "./pages/Contacto";
 import NotFound from "./pages/NotFound";
+import AdminPanel from "./pages/AdminPanel";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -25,6 +26,19 @@ function ScrollToTop() {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith("/admin")) {
+    return (
+      <>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/admin/*" element={<AdminPanel />} />
+        </Routes>
+      </>
+    );
+  }
+
   return (
     <div className="app-shell">
       <IntroScreen />

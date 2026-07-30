@@ -26,7 +26,8 @@ from sqlalchemy import select
 from app.database import Base, SessionLocal, engine
 from app.models import Product, ProductDocument, ProductImage, ProductSource
 from app.official_sources import CORRECTIONS, OFFICIAL_SOURCES, RETIRED_SOURCE_URLS
-from app.storage import media_uri, put_object, storage_client, MINIO_BUCKET
+from app.storage import STORAGE_BACKEND, media_uri, put_object
+from app.storage_minio import MINIO_BUCKET, storage_client
 
 MAX_PDF_BYTES = 30 * 1024 * 1024
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
@@ -309,6 +310,10 @@ def sync_og_image(db, product: Product, source: dict, cache_dir: Path) -> str:
 
 
 def run(include_images: bool) -> int:
+    if STORAGE_BACKEND != "minio":
+        raise RuntimeError(
+            "La importación masiva oficial requiere STORAGE_BACKEND=minio"
+        )
     Base.metadata.create_all(bind=engine)
     cache_root = Path("tmp/official-media")
     failures = 0

@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
 )
@@ -24,8 +25,16 @@ class Brand(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     accent_color: Mapped[str] = mapped_column(String(7), default="#1fd7c1")
     logo_url: Mapped[str] = mapped_column(String(200), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     products: Mapped[list["Product"]] = relationship(back_populates="brand")
+
+    @property
+    def resolved_logo_url(self) -> str:
+        return resolve_media_url(self.logo_url)
 
 
 class Category(Base):
@@ -37,8 +46,16 @@ class Category(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     icon: Mapped[str] = mapped_column(String(10), default="▢")
     image_url: Mapped[str] = mapped_column(String(200), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     products: Mapped[list["Product"]] = relationship(back_populates="category")
+
+    @property
+    def resolved_image_url(self) -> str:
+        return resolve_media_url(self.image_url)
 
 
 class Product(Base):
@@ -56,11 +73,16 @@ class Product(Base):
     specs: Mapped[dict] = mapped_column(JSON, default=dict)
     highlights: Mapped[list] = mapped_column(JSON, default=list)
     stock_note: Mapped[str] = mapped_column(String(120), default="Disponible bajo cotización")
+    price: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), default="PEN")
     available_stock: Mapped[int] = mapped_column(Integer, default=0, index=True)
     stock_type: Mapped[str] = mapped_column(String(20), default="serialized")
     is_used: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(20), default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     brand: Mapped["Brand"] = relationship(back_populates="products")
     category: Mapped["Category"] = relationship(back_populates="products")
@@ -88,6 +110,17 @@ class Product(Base):
     inventory_balances: Mapped[list["InventoryBalance"]] = relationship(
         back_populates="product", cascade="all, delete-orphan"
     )
+
+    @property
+    def is_publicly_visible(self) -> bool:
+        return bool(
+            self.status == "active"
+            and self.available_stock > 0
+            and self.brand
+            and self.brand.is_active
+            and self.category
+            and self.category.is_active
+        )
 
 
 class ProductImage(Base):
@@ -252,3 +285,48 @@ class StockMovement(Base):
     reference: Mapped[str] = mapped_column(String(160), default="")
     notes: Mapped[str] = mapped_column(Text, default="")
     occurred_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AdminUser(Base):
+    """Usuario interno autorizado para operar el catálogo."""
+
+    __tablename__ = "admin_users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, index=True)
+    full_name: Mapped[str] = mapped_column(String(140), default="")
+    password_hash: Mapped[str] = mapped_column(String(300), nullable=False)
+    role: Mapped[str] = mapped_column(String(30), default="warehouse")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    sessions: Mapped[list["AdminSession"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class AdminSession(Base):
+    __tablename__ = "admin_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("admin_users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user: Mapped["AdminUser"] = relationship(back_populates="sessions")
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("admin_users.id"), nullable=True, index=True
+    )
+    action: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    entity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

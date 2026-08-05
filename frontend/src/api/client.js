@@ -18,21 +18,33 @@ async function request(path, options = {}) {
 }
 
 async function adminRequest(path, options = {}) {
+  const { responseType = "json", ...requestOptions } = options;
   const token = localStorage.getItem("hwstore_admin_token");
-  const isFormData = options.body instanceof FormData;
+  const isFormData = requestOptions.body instanceof FormData;
   const headers = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
+    ...requestOptions.headers,
   };
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  const res = await fetch(`${API_URL}${path}`, { ...requestOptions, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const error = new Error(body.detail || `Error ${res.status}`);
+    const detail = body.detail;
+    const message = typeof detail === "string" ? detail : detail?.message;
+    const error = new Error(message || `Error ${res.status}`);
     error.status = res.status;
+    error.detail = detail;
     throw error;
   }
   if (res.status === 204) return null;
+  if (responseType === "blob") {
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+    return {
+      blob: await res.blob(),
+      filename: filenameMatch?.[1] || "plantilla_importacion_productos.xlsx",
+    };
+  }
   return res.json();
 }
 
@@ -67,6 +79,28 @@ export const adminApi = {
     return adminRequest(`/api/admin/products${query ? `?${query}` : ""}`);
   },
   getProduct: (id) => adminRequest(`/api/admin/products/${id}`),
+  downloadProductTemplate: () =>
+    adminRequest("/api/admin/products/template", { responseType: "blob" }),
+  validateProductImport: (formData) =>
+    adminRequest("/api/admin/products/import/validate", {
+      method: "POST",
+      body: formData,
+    }),
+  importProducts: (formData) =>
+    adminRequest("/api/admin/products/import", {
+      method: "POST",
+      body: formData,
+    }),
+  validateProductMediaZip: (formData) =>
+    adminRequest("/api/admin/products/media-import/validate", {
+      method: "POST",
+      body: formData,
+    }),
+  importProductMediaZip: (formData) =>
+    adminRequest("/api/admin/products/media-import", {
+      method: "POST",
+      body: formData,
+    }),
   createProduct: (payload) =>
     adminRequest("/api/admin/products", {
       method: "POST",

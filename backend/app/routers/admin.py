@@ -1,11 +1,8 @@
-import re
-import unicodedata
 import os
 from datetime import datetime
-from io import BytesIO
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy import asc, desc, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
@@ -13,27 +10,53 @@ from sqlalchemy.orm import Session, joinedload
 from app import models, schemas
 from app.auth import create_session, require_admin, token_digest, verify_password
 from app.database import get_db
-from app.routers.products import (
+from app.product_creation import (
+    ProductCatalogError,
+    apply_product,
+    audit_product_creation,
+    create_product_record,
+    normalize_sku,
+    slugify,
+    unique_slug,
+)
+from app.product_excel_template import (
+    PRODUCT_TEMPLATE_FILENAME,
+    PRODUCT_TEMPLATE_MEDIA_TYPE,
+    build_product_import_template,
+)
+from app.product_excel_import import (
+    MAX_IMPORT_BYTES,
+    ProductImportFileError,
+    create_products_from_preview,
+    safe_upload_filename,
+    validate_product_workbook_for_db,
+)
+from app.product_media import (
     IMAGE_MAX_BYTES,
     IMAGE_TYPES,
     PDF_MAX_BYTES,
+    build_product_document,
+    build_product_image,
     matches_file_signature,
     safe_filename,
     safe_path_segment,
+    save_storage_object,
+)
+from app.product_media_zip import (
+    MEDIA_ZIP_MAX_BYTES,
+    ProductMediaZipConflictError,
+    ProductMediaZipError,
+    inspect_product_media_zip,
+    safe_zip_filename,
+    upload_product_media_operations,
 )
 from app.storage import (
     StorageUnavailableError,
-    put_object,
     remove_object_strict,
     resolve_media_url,
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
-
-
-def slugify(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
 
 
 def commit_or_conflict(db: Session, detail: str) -> None:
@@ -61,20 +84,6 @@ def taxonomy_out(db: Session, item, kind: str) -> dict:
     else:
         result.update(icon=item.icon, image_url=asset)
     return result
-
-
-def unique_slug(db: Session, name: str, product_id: int | None = None) -> str:
-    base = slugify(name) or "producto"
-    candidate = base
-    suffix = 2
-    while True:
-        query = db.query(models.Product).filter(models.Product.slug == candidate)
-        if product_id:
-            query = query.filter(models.Product.id != product_id)
-        if not query.first():
-            return candidate
-        candidate = f"{base}-{suffix}"
-        suffix += 1
 
 
 def audit(
@@ -181,6 +190,231 @@ def list_admin_products(
     return {"total": total, "page": page, "page_size": page_size, "items": items}
 
 
+@router.get("/products/template")
+def download_product_template(
+    db: Session = Depends(get_db),
+    _: models.AdminUser = Depends(require_admin),
+):
+    brands = [
+        name
+        for (name,) in db.query(models.Brand.name)
+        .filter(models.Brand.is_active.is_(True))
+        .order_by(models.Brand.id)
+        .all()
+    ]
+    categories = [
+        name
+        for (name,) in db.query(models.Category.name)
+        .filter(models.Category.is_active.is_(True))
+        .order_by(models.Category.id)
+        .all()
+    ]
+    workbook = build_product_import_template(
+        brands=brands,
+        categories=categories,
+    )
+    return StreamingResponse(
+        workbook,
+        media_type=PRODUCT_TEMPLATE_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": f'attachment; filename="{PRODUCT_TEMPLATE_FILENAME}"',
+        },
+    )
+
+
+@router.post(
+    "/products/import/validate",
+    response_model=schemas.AdminProductImportPreview,
+)
+async def validate_product_import(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: models.AdminUser = Depends(require_admin),
+):
+    filename, contents = await read_product_import_upload(file)
+    try:
+        return validate_product_workbook_for_db(
+            db,
+            contents,
+            filename=filename,
+        )
+    except ProductImportFileError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+async def read_product_import_upload(file: UploadFile) -> tuple[str, bytes]:
+    filename = safe_upload_filename(file.filename)
+    if not filename.lower().endswith(".xlsx"):
+        await file.close()
+        raise HTTPException(status_code=400, detail="Selecciona un archivo .xlsx.")
+    try:
+        contents = await file.read(MAX_IMPORT_BYTES + 1)
+    finally:
+        await file.close()
+    if len(contents) > MAX_IMPORT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="El archivo supera el límite permitido de 5 MB.",
+        )
+    return filename, contents
+
+
+@router.post(
+    "/products/import",
+    response_model=schemas.AdminProductImportResult,
+    status_code=201,
+)
+async def import_products(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: models.AdminUser = Depends(require_admin),
+):
+    filename, contents = await read_product_import_upload(file)
+    try:
+        preview = validate_product_workbook_for_db(
+            db,
+            contents,
+            filename=filename,
+        )
+    except ProductImportFileError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if not preview["can_import"] or preview["invalid_rows"] or not preview["rows"]:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "El archivo ya no es válido. La importación fue cancelada; "
+                    "vuelve a validar la vista previa."
+                ),
+                "preview": preview,
+            },
+        )
+
+    try:
+        products = create_products_from_preview(db, user, preview)
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "La importación fue cancelada porque uno o más SKU ya existen. "
+                "Vuelve a validar el archivo."
+            ),
+        ) from exc
+
+    imported_count = len(products)
+    return {
+        "success": True,
+        "filename": filename,
+        "imported_count": imported_count,
+        "products": products,
+        "message": f"{imported_count} productos importados correctamente.",
+    }
+
+
+async def read_product_media_zip_upload(file: UploadFile) -> tuple[str, bytes]:
+    filename = safe_zip_filename(file.filename)
+    if not filename.lower().endswith(".zip"):
+        await file.close()
+        raise HTTPException(status_code=400, detail="Selecciona un archivo .zip.")
+    try:
+        contents = await file.read(MEDIA_ZIP_MAX_BYTES + 1)
+    finally:
+        await file.close()
+    if len(contents) > MEDIA_ZIP_MAX_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                "El archivo ZIP supera el límite de "
+                f"{MEDIA_ZIP_MAX_BYTES // (1024 * 1024)} MB."
+            ),
+        )
+    return filename, contents
+
+
+@router.post(
+    "/products/media-import/validate",
+    response_model=schemas.AdminProductMediaZipPreview,
+)
+async def validate_product_media_zip(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: models.AdminUser = Depends(require_admin),
+):
+    filename, contents = await read_product_media_zip_upload(file)
+    try:
+        preview, _ = inspect_product_media_zip(
+            db,
+            contents,
+            filename=filename,
+        )
+    except ProductMediaZipError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return preview
+
+
+@router.post(
+    "/products/media-import",
+    response_model=schemas.AdminProductMediaZipResult,
+    status_code=201,
+)
+async def import_product_media_zip(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: models.AdminUser = Depends(require_admin),
+):
+    filename, contents = await read_product_media_zip_upload(file)
+    try:
+        preview, operations = inspect_product_media_zip(
+            db,
+            contents,
+            filename=filename,
+        )
+    except ProductMediaZipError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not preview["can_upload"]:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "El ZIP ya no es válido o presenta conflictos. "
+                    "La carga fue cancelada; vuelve a validar el archivo."
+                ),
+                "preview": preview,
+            },
+        )
+    try:
+        result = upload_product_media_operations(db, user, operations)
+    except ProductMediaZipConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"La carga fue cancelada por un conflicto concurrente: {exc} "
+                "Vuelve a validar el ZIP."
+            ),
+        ) from exc
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "La carga fue cancelada porque los archivos entraron en conflicto "
+                "con datos actuales. Vuelve a validar el ZIP."
+            ),
+        ) from exc
+    except StorageUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return {
+        "success": True,
+        "filename": filename,
+        **result,
+        "message": (
+            f"Se cargaron correctamente {result['uploaded_images']} imágenes y "
+            f"{result['uploaded_documents']} fichas técnicas."
+        ),
+    }
+
+
 @router.get("/products/{product_id}", response_model=schemas.AdminProductOut)
 def get_admin_product(
     product_id: int,
@@ -205,43 +439,19 @@ def get_admin_product(
     return product
 
 
-def apply_product(product: models.Product, payload: schemas.AdminProductInput, db: Session):
-    if not db.query(models.Brand).filter(models.Brand.id == payload.brand_id).first():
-        raise HTTPException(status_code=400, detail="Selecciona una marca válida")
-    if not db.query(models.Category).filter(models.Category.id == payload.category_id).first():
-        raise HTTPException(status_code=400, detail="Selecciona una categoría válida")
-
-    product.sku = payload.sku.strip().upper()
-    product.name = payload.name.strip()
-    product.brand_id = payload.brand_id
-    product.category_id = payload.category_id
-    product.part_number = payload.part_number.strip()
-    product.short_description = payload.short_description.strip()
-    product.description = payload.description.strip()
-    product.specs = payload.specs
-    product.highlights = payload.highlights
-    product.stock_note = payload.stock_note.strip()
-    product.price = payload.price
-    product.currency = payload.currency.upper()
-    product.available_stock = payload.available_stock
-    product.stock_type = payload.stock_type
-    product.is_used = payload.is_used
-    product.status = payload.status
-
-
 @router.post("/products", response_model=schemas.AdminProductOut, status_code=201)
 def create_product(
     payload: schemas.AdminProductInput,
     db: Session = Depends(get_db),
     user: models.AdminUser = Depends(require_admin),
 ):
-    if db.query(models.Product).filter(models.Product.sku == payload.sku.strip().upper()).first():
+    if db.query(models.Product).filter(models.Product.sku == normalize_sku(payload.sku)).first():
         raise HTTPException(status_code=409, detail="Ya existe un producto con ese SKU")
-    product = models.Product(slug=unique_slug(db, payload.name))
-    apply_product(product, payload, db)
-    db.add(product)
-    db.flush()
-    audit(db, user, "product.create", product.id, {"sku": product.sku})
+    try:
+        product = create_product_record(db, payload)
+    except ProductCatalogError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    audit_product_creation(db, user, product)
     db.commit()
     return get_admin_product(product.id, db, user)
 
@@ -259,7 +469,7 @@ def update_product(
     duplicate = (
         db.query(models.Product)
         .filter(
-            models.Product.sku == payload.sku.strip().upper(),
+            models.Product.sku == normalize_sku(payload.sku),
             models.Product.id != product_id,
         )
         .first()
@@ -268,7 +478,10 @@ def update_product(
         raise HTTPException(status_code=409, detail="Ya existe otro producto con ese SKU")
     if product.name != payload.name.strip():
         product.slug = unique_slug(db, payload.name, product.id)
-    apply_product(product, payload, db)
+    try:
+        apply_product(product, payload, db)
+    except ProductCatalogError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     audit(db, user, "product.update", product.id, {"sku": product.sku})
     db.commit()
     return get_admin_product(product.id, db, user)
@@ -680,14 +893,13 @@ async def read_media_upload(file: UploadFile, media_type: str) -> tuple[bytes, s
 def save_media_object(
     prefix: str, contents: bytes, extension: str, content_type: str, metadata: dict
 ) -> str:
-    object_name = f"{prefix}/{uuid4().hex}{extension}"
     try:
-        return put_object(
-            object_name,
-            BytesIO(contents),
-            len(contents),
+        return save_storage_object(
+            prefix,
+            contents,
+            extension,
             content_type,
-            metadata=metadata,
+            metadata,
         )
     except StorageUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -765,11 +977,12 @@ async def upload_product_image(
         for item in product.images:
             item.sort_order += 1
         next_order = 0
-    image = models.ProductImage(
-        product_id=product.id,
-        url=storage_uri,
-        alt=(alt.strip() or product.name)[:200],
+    image = build_product_image(
+        product,
+        storage_uri,
         sort_order=next_order,
+        alt=alt,
+        fallback_blank_alt=True,
     )
     try:
         db.add(image)
@@ -929,14 +1142,13 @@ async def upload_product_document(
         "application/pdf",
         {"original-filename": original_name, "product-sku": product.sku},
     )
-    document = models.ProductDocument(
-        product_id=product.id,
-        title=(title.strip() or "Ficha técnica")[:200],
-        document_type=document_type[:40],
-        storage_uri=storage_uri,
+    document = build_product_document(
+        product,
+        storage_uri,
         original_filename=original_name,
-        mime_type="application/pdf",
         size_bytes=len(contents),
+        title=title,
+        document_type=document_type,
         is_official=is_official,
         sort_order=max((item.sort_order for item in product.documents), default=-1) + 1,
     )

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { adminApi, api } from "../api/client";
 import { publicAsset } from "../utils/publicAsset";
+import {
+  canImportValidatedFile,
+  canUploadValidatedZip,
+  formatFileSize,
+} from "../utils/productImport";
 import "./AdminPanel.css";
 
 const EMPTY_PRODUCT = {
@@ -42,6 +47,8 @@ function Icon({ name }) {
     tag: <><path d="M20 13 13 20 4 11V4h7l9 9Z" /><circle cx="8.5" cy="8.5" r="1.5" /></>,
     grid: <><rect x="4" y="4" width="6" height="6" /><rect x="14" y="4" width="6" height="6" /><rect x="4" y="14" width="6" height="6" /><rect x="14" y="14" width="6" height="6" /></>,
     trash: <><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" /><path d="M10 11v5M14 11v5" /></>,
+    download: <><path d="M12 3v12M7 10l5 5 5-5" /><path d="M5 20h14" /></>,
+    upload: <><path d="M12 16V4M7 9l5-5 5 5" /><path d="M5 20h14" /></>,
   };
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
 }
@@ -115,19 +122,462 @@ function Login({ onLogin }) {
   );
 }
 
-function ProductList({ products, total, search, setSearch, filter, setFilter, onEdit, onCreate, loading }) {
+function ProductImportModal({ onClose, onImported }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [validating, setValidating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const busy = validating || importing;
+  const canImport = canImportValidatedFile(file, preview, busy);
+
+  const selectFile = (event) => {
+    const selected = event.target.files?.[0] || null;
+    setFile(selected);
+    setPreview(null);
+    setResult(null);
+    setConfirmOpen(false);
+    setError("");
+  };
+
+  const validate = async () => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
+      setError("Selecciona un archivo con extensión .xlsx.");
+      return;
+    }
+    setValidating(true);
+    setError("");
+    setPreview(null);
+    setResult(null);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      setPreview(await adminApi.validateProductImport(formData));
+    } catch (requestError) {
+      setError(requestError.message || "No se pudo validar el archivo Excel.");
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const importProducts = async () => {
+    if (!canImport || !file) return;
+    setImporting(true);
+    setError("");
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const imported = await adminApi.importProducts(formData);
+      setResult(imported);
+      setFile(null);
+      setPreview(null);
+      setConfirmOpen(false);
+      try {
+        await onImported?.();
+      } catch {
+        // The import succeeded even if refreshing the list encounters a transient error.
+      }
+    } catch (requestError) {
+      const updatedPreview = requestError.detail?.preview;
+      setPreview(updatedPreview || null);
+      setConfirmOpen(false);
+      setError(requestError.message || "No se pudo completar la importación.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
-    <section className="admin-content">
+    <div className="admin-modal-backdrop" role="presentation">
+      <section className="admin-modal admin-import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
+        <header className="admin-import-header">
+          <div>
+            <span className="admin-kicker">Carga masiva · vista previa</span>
+            <h2 id="import-title">Importar productos</h2>
+            <p>Valida la plantilla y confirma la creación transaccional de productos nuevos.</p>
+          </div>
+        </header>
+
+        {!result && (
+          <div className="admin-import-file">
+            <label className="admin-secondary">
+              <Icon name="file" />
+              {file ? "Seleccionar otro archivo" : "Seleccionar archivo"}
+              <input
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={selectFile}
+                disabled={busy}
+              />
+            </label>
+            <span>{file ? file.name : "Ningún archivo seleccionado"}</span>
+          </div>
+        )}
+
+        {error && <div className="admin-alert" role="alert">{error}</div>}
+
+        {result && (
+          <div className="admin-import-success" role="status">
+            <span className="admin-import-success__icon">✓</span>
+            <div>
+              <span className="admin-kicker">Importación completada</span>
+              <h3>{result.imported_count} productos creados correctamente.</h3>
+              <p>{result.filename}</p>
+              <ul>
+                {result.products.map((product) => (
+                  <li key={product.id}><strong>{product.sku}</strong><span>{product.name}</span></li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {preview && !result && (
+          <div className="admin-import-preview" aria-live="polite">
+            <div className="admin-import-summary">
+              <article><span>Archivo</span><strong>{preview.filename}</strong></article>
+              <article><span>Total de filas</span><strong>{preview.total_rows}</strong></article>
+              <article className="is-valid"><span>Válidas</span><strong>{preview.valid_rows}</strong></article>
+              <article className={preview.invalid_rows ? "is-invalid" : ""}><span>Con errores</span><strong>{preview.invalid_rows}</strong></article>
+            </div>
+
+            <div className="admin-import-table-card">
+              <table className="admin-import-table">
+                <thead>
+                  <tr><th>Fila</th><th>SKU</th><th>Nombre</th><th>Marca</th><th>Categoría</th><th>Validación</th><th>Errores</th></tr>
+                </thead>
+                <tbody>
+                  {preview.rows.map((row) => (
+                    <tr key={row.row_number} className={row.valid ? "is-valid" : "is-invalid"}>
+                      <td>{row.row_number}</td>
+                      <td><strong>{row.sku || "—"}</strong></td>
+                      <td>{row.name || "—"}</td>
+                      <td>{row.brand || row.raw.marca || "—"}</td>
+                      <td>{row.category || row.raw.categoria || "—"}</td>
+                      <td><span className={`admin-import-status ${row.valid ? "is-valid" : "is-invalid"}`}>{row.valid ? "Válido" : "Con errores"}</span></td>
+                      <td>
+                        {row.errors.length ? (
+                          <ul>{row.errors.map((message, index) => <li key={`${row.row_number}-${index}`}>{message}</li>)}</ul>
+                        ) : "Sin errores"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="admin-import-next-step">
+              {preview.can_import
+                ? "El archivo no presenta errores y está listo para importarse."
+                : "Corrige las filas indicadas y vuelve a validar."}
+            </p>
+          </div>
+        )}
+
+        <div className="admin-modal-actions">
+          <button className="admin-secondary" type="button" onClick={onClose} disabled={busy}>
+            {result || preview ? "Cerrar" : "Cancelar"}
+          </button>
+          {result ? (
+            <button className="admin-primary admin-primary--fit" type="button" onClick={() => setResult(null)}>
+              Importar otro archivo
+            </button>
+          ) : (
+            <>
+              <button className="admin-secondary" type="button" onClick={validate} disabled={!file || busy}>
+                {validating ? "Validando…" : preview ? "Volver a validar" : "Validar archivo"}
+              </button>
+              <button
+                className="admin-primary admin-primary--fit"
+                type="button"
+                onClick={() => setConfirmOpen(true)}
+                disabled={!canImport}
+              >
+                <Icon name="upload" /> {importing ? "Importando…" : "Importar productos"}
+              </button>
+            </>
+          )}
+        </div>
+      </section>
+
+      {confirmOpen && (
+        <div className="admin-confirm-backdrop">
+          <section className="admin-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-import-title">
+            <span className="admin-kicker">Confirmación requerida</span>
+            <h3 id="confirm-import-title">Confirmar importación</h3>
+            <p>
+              Se crearán <strong>{preview.total_rows} productos nuevos</strong> desde <strong>{file.name}</strong>.
+              Esta operación no actualizará productos existentes. ¿Deseas continuar?
+            </p>
+            <div className="admin-modal-actions">
+              <button className="admin-secondary" type="button" onClick={() => setConfirmOpen(false)} disabled={importing}>Cancelar</button>
+              <button className="admin-primary admin-primary--fit" type="button" onClick={importProducts} disabled={importing}>
+                {importing ? "Importando…" : "Confirmar importación"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductMediaZipModal({ onClose, onUploaded }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [validating, setValidating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const busy = validating || uploading;
+  const canUpload = canUploadValidatedZip(file, preview, busy);
+
+  const selectFile = (event) => {
+    setFile(event.target.files?.[0] || null);
+    setPreview(null);
+    setResult(null);
+    setConfirmOpen(false);
+    setError("");
+  };
+
+  const validate = async () => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      setError("Selecciona un archivo con extensión .zip.");
+      return;
+    }
+    setValidating(true);
+    setPreview(null);
+    setResult(null);
+    setError("");
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      setPreview(await adminApi.validateProductMediaZip(formData));
+    } catch (requestError) {
+      setError(requestError.message || "No se pudo validar el archivo ZIP.");
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const upload = async () => {
+    if (!canUpload || !file) return;
+    setUploading(true);
+    setError("");
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const uploaded = await adminApi.importProductMediaZip(formData);
+      setResult(uploaded);
+      setFile(null);
+      setPreview(null);
+      setConfirmOpen(false);
+      try {
+        await onUploaded?.();
+      } catch {
+        // The upload remains successful if refreshing the list fails transiently.
+      }
+    } catch (requestError) {
+      setPreview(requestError.detail?.preview || null);
+      setConfirmOpen(false);
+      setError(requestError.message || "No se pudo completar la carga de archivos.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="admin-modal-backdrop" role="presentation">
+      <section className="admin-modal admin-import-modal" role="dialog" aria-modal="true" aria-labelledby="media-zip-title">
+        <header className="admin-import-header">
+          <div>
+            <span className="admin-kicker">Media por SKU · vista previa</span>
+            <h2 id="media-zip-title">Cargar imágenes y fichas</h2>
+            <p>Selecciona un ZIP con las carpetas imagenes/ y fichas/. Nada se almacenará hasta que confirmes la subida.</p>
+          </div>
+        </header>
+
+        {!result && (
+          <div className="admin-import-file">
+            <label className="admin-secondary">
+              <Icon name="file" />
+              {file ? "Seleccionar otro ZIP" : "Seleccionar ZIP"}
+              <input type="file" accept=".zip,application/zip" onChange={selectFile} disabled={busy} />
+            </label>
+            <span>{file ? `${file.name} · ${formatFileSize(file.size)}` : "Ningún archivo seleccionado"}</span>
+          </div>
+        )}
+
+        {error && <div className="admin-alert" role="alert">{error}</div>}
+
+        {result && (
+          <div className="admin-import-success" role="status">
+            <span className="admin-import-success__icon">✓</span>
+            <div>
+              <span className="admin-kicker">Carga completada</span>
+              <h3>{result.uploaded_images} imágenes y {result.uploaded_documents} fichas asociadas.</h3>
+              <p>{result.affected_products} productos afectados · {result.filename}</p>
+              <ul>
+                {result.products.map((product) => (
+                  <li key={product.id}>
+                    <strong>{product.sku}</strong>
+                    <span>{product.name} · {product.images_added} imágenes · {product.documents_added} fichas</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {preview && !result && (
+          <div className="admin-import-preview" aria-live="polite">
+            <div className="admin-media-zip-summary">
+              <article><span>Archivo</span><strong>{preview.filename}</strong></article>
+              <article><span>Total</span><strong>{preview.total_files}</strong></article>
+              <article><span>Imágenes</span><strong>{preview.image_count}</strong></article>
+              <article><span>Fichas</span><strong>{preview.document_count}</strong></article>
+              <article><span>Productos</span><strong>{preview.related_products}</strong></article>
+              <article className="is-valid"><span>Válidos</span><strong>{preview.valid_files}</strong></article>
+              <article className={preview.invalid_files ? "is-invalid" : ""}><span>Con errores</span><strong>{preview.invalid_files}</strong></article>
+            </div>
+
+            <div className="admin-import-table-card">
+              <table className="admin-import-table admin-media-zip-table">
+                <thead>
+                  <tr><th>Archivo</th><th>SKU</th><th>Producto</th><th>Tipo</th><th>Orden</th><th>Tamaño</th><th>Estado</th><th>Errores</th></tr>
+                </thead>
+                <tbody>
+                  {preview.files.map((item, index) => {
+                    const conflict = item.errors.some((message) => message.includes("ya tiene"));
+                    const status = item.valid ? "Válido" : conflict ? "Conflicto" : "Con errores";
+                    return (
+                      <tr key={`${item.path}-${index}`} className={item.valid ? "is-valid" : "is-invalid"}>
+                        <td><strong>{item.filename}</strong><small>{item.path}</small></td>
+                        <td>{item.sku || "—"}</td>
+                        <td>{item.product_name || "No encontrado"}</td>
+                        <td>{item.type === "image" ? "Imagen" : item.type === "document" ? "Ficha PDF" : "Desconocido"}</td>
+                        <td>{item.order ?? "—"}</td>
+                        <td>{formatFileSize(item.size)}</td>
+                        <td><span className={`admin-import-status ${item.valid ? "is-valid" : "is-invalid"}`}>{status}</span></td>
+                        <td>{item.errors.length ? <ul>{item.errors.map((message, errorIndex) => <li key={`${index}-${errorIndex}`}>{message}</li>)}</ul> : "Sin errores"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="admin-import-next-step">
+              {preview.can_upload
+                ? "El ZIP no presenta conflictos y está listo para subir."
+                : "Corrige los archivos indicados y vuelve a validar el ZIP."}
+            </p>
+          </div>
+        )}
+
+        <div className="admin-modal-actions">
+          <button className="admin-secondary" type="button" onClick={onClose} disabled={busy}>
+            {result || preview ? "Cerrar" : "Cancelar"}
+          </button>
+          {result ? (
+            <button className="admin-primary admin-primary--fit" type="button" onClick={() => setResult(null)}>
+              Cargar otro ZIP
+            </button>
+          ) : (
+            <>
+              <button className="admin-secondary" type="button" onClick={validate} disabled={!file || busy}>
+                {validating ? "Validando…" : preview ? "Volver a validar" : "Validar ZIP"}
+              </button>
+              <button className="admin-primary admin-primary--fit" type="button" onClick={() => setConfirmOpen(true)} disabled={!canUpload}>
+                <Icon name="upload" /> {uploading ? "Subiendo…" : "Subir archivos"}
+              </button>
+            </>
+          )}
+        </div>
+      </section>
+
+      {confirmOpen && (
+        <div className="admin-confirm-backdrop">
+          <section className="admin-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-media-zip-title">
+            <span className="admin-kicker">Confirmación requerida</span>
+            <h3 id="confirm-media-zip-title">Confirmar subida</h3>
+            <p>
+              Se subirán <strong>{preview.image_count} imágenes</strong> y <strong>{preview.document_count} fichas técnicas</strong> asociadas a <strong>{preview.related_products} productos</strong> desde <strong>{file.name}</strong>. ¿Deseas continuar?
+            </p>
+            <div className="admin-modal-actions">
+              <button className="admin-secondary" type="button" onClick={() => setConfirmOpen(false)} disabled={uploading}>Cancelar</button>
+              <button className="admin-primary admin-primary--fit" type="button" onClick={upload} disabled={uploading}>
+                {uploading ? "Subiendo…" : "Confirmar subida"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function ProductList({ products, total, search, setSearch, filter, setFilter, onEdit, onCreate, onImported, loading }) {
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [mediaImportOpen, setMediaImportOpen] = useState(false);
+
+  const downloadTemplate = async () => {
+    setDownloading(true);
+    setDownloadError("");
+    try {
+      const { blob, filename } = await adminApi.downloadProductTemplate();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
+    } catch {
+      setDownloadError(
+        "No se pudo descargar la plantilla Excel. Verifica tu conexión e inténtalo nuevamente."
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <>
+      <section className="admin-content">
       <header className="admin-pagehead">
         <div>
           <span className="admin-kicker">Catálogo operativo</span>
           <h1>Productos</h1>
           <p>{total} registros encontrados. Los publicados con stock aparecen en la tienda.</p>
         </div>
-        <button className="admin-primary admin-primary--fit" onClick={onCreate}>
-          <Icon name="plus" /> Nuevo producto
-        </button>
+        <div className="admin-pagehead__actions">
+          <button className="admin-secondary" onClick={() => setMediaImportOpen(true)}>
+            <Icon name="image" /> Cargar imágenes y fichas
+          </button>
+          <button className="admin-secondary" onClick={() => setImportOpen(true)}>
+            <Icon name="upload" /> Importar productos
+          </button>
+          <button className="admin-secondary" onClick={downloadTemplate} disabled={downloading}>
+            <Icon name="download" />
+            {downloading ? "Descargando…" : "Descargar plantilla Excel"}
+          </button>
+          <button className="admin-primary admin-primary--fit" onClick={onCreate}>
+            <Icon name="plus" /> Nuevo producto
+          </button>
+        </div>
       </header>
+
+      {downloadError && <div className="admin-alert admin-download-alert" role="alert">{downloadError}</div>}
 
       <div className="admin-toolbar">
         <label className="admin-search">
@@ -171,7 +621,15 @@ function ProductList({ products, total, search, setSearch, filter, setFilter, on
           </button>
         ))}
       </div>
-    </section>
+      </section>
+      {importOpen && <ProductImportModal onClose={() => setImportOpen(false)} onImported={onImported} />}
+      {mediaImportOpen && (
+        <ProductMediaZipModal
+          onClose={() => setMediaImportOpen(false)}
+          onUploaded={onImported}
+        />
+      )}
+    </>
   );
 }
 
@@ -616,6 +1074,7 @@ export default function AdminPanel() {
             filter={filter}
             setFilter={setFilter}
             loading={loading}
+            onImported={load}
             onCreate={() => { setEditingId(undefined); setEditorOpen(true); }}
             onEdit={(id) => { setEditingId(id); setEditorOpen(true); }}
           />

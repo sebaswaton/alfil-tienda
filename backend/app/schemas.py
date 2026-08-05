@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -194,6 +195,99 @@ class AdminProductListResponse(BaseModel):
     page: int
     page_size: int
     items: list[AdminProductListItem]
+
+
+class AdminProductImportRowPreview(BaseModel):
+    row_number: int
+    sku: str
+    name: str
+    brand: str
+    category: str
+    valid: bool
+    errors: list[str]
+    warnings: list[str]
+    raw: dict[str, Any]
+    normalized: dict[str, Any]
+
+
+class AdminProductImportPreview(BaseModel):
+    filename: str
+    total_rows: int
+    valid_rows: int
+    invalid_rows: int
+    can_import: bool
+    rows: list[AdminProductImportRowPreview]
+
+
+class AdminProductImportCreatedProduct(BaseModel):
+    id: int
+    sku: str
+    name: str
+    slug: str
+
+
+class AdminProductImportResult(BaseModel):
+    success: bool
+    filename: str
+    imported_count: int
+    products: list[AdminProductImportCreatedProduct]
+    message: str
+
+
+class AdminProductMediaZipFilePreview(BaseModel):
+    path: str
+    filename: str
+    type: str
+    sku: str
+    product_id: int | None
+    product_name: str
+    order: int | None
+    size: int
+    content_type: str
+    valid: bool
+    errors: list[str]
+    warnings: list[str]
+
+
+class AdminProductMediaZipProductPreview(BaseModel):
+    sku: str
+    product_id: int | None
+    product_name: str
+    images: int
+    has_document: bool
+    valid: bool
+    errors: list[str]
+
+
+class AdminProductMediaZipPreview(BaseModel):
+    filename: str
+    total_files: int
+    valid_files: int
+    invalid_files: int
+    related_products: int
+    image_count: int
+    document_count: int
+    can_upload: bool
+    files: list[AdminProductMediaZipFilePreview]
+    products: list[AdminProductMediaZipProductPreview]
+
+
+class AdminProductMediaZipAffectedProduct(BaseModel):
+    id: int
+    sku: str
+    name: str
+    images_added: int
+    documents_added: int
+
+
+class AdminProductMediaZipResult(BaseModel):
+    success: bool
+    filename: str
+    uploaded_images: int
+    uploaded_documents: int
+    affected_products: int
+    products: list[AdminProductMediaZipAffectedProduct]
+    message: str
 
 
 class AdminActiveUpdate(BaseModel):
